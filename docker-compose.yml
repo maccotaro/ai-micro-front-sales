@@ -1,0 +1,19 @@
+services:
+  front-sales:
+    image: node:20-alpine
+    container_name: ai-micro-front-sales
+    working_dir: /app
+    ports:
+      - "3005:3005"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+      - AUTH_SERVER_URL=http://host.docker.internal:8002
+      - SALES_API_URL=http://host.docker.internal:8005
+      - ADMIN_API_URL=http://host.docker.internal:8003
+    command: sh -c "npm install && npm run dev"
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
