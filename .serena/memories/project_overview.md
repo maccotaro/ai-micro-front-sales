@@ -15,6 +15,7 @@
 | Data Fetching | SWR 2.2 |
 | Form | React Hook Form + Zod |
 | 認証 | JWT (httpOnly cookies) |
+| Port | 3005 |
 
 ## サービス通信
 
@@ -86,6 +87,4 @@ ai-micro-front-sales/
 4. 以降のリクエストは自動的にトークン付与
 5. トークン期限切れ時は自動更新
 
-## ポート
-- **Port**: 3005
-- **コンテナ名**: ai-micro-front-sales
+## 最終更新: 2026-01-14
