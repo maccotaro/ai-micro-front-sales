@@ -1,116 +1,62 @@
-# ai-micro-front-sales 推奨コマンド
+# ai-micro-front-sales Suggested Commands
 
-## 開発
-
-### 依存関係インストール
-
+## Development
 ```bash
+# 依存関係インストール
 npm install
-```
 
-### 開発サーバー起動
-
-```bash
+# 開発サーバー起動
 npm run dev
-# http://localhost:3005 でアクセス可能
-```
 
-### 型チェック
-
-```bash
+# 型チェック
 npm run type-check
-```
 
-### Lint
-
-```bash
+# Lint
 npm run lint
-```
 
-### ビルド
-
-```bash
+# ビルド
 npm run build
 ```
 
-### 本番サーバー起動
-
+## Docker Operations
 ```bash
-npm run start
-```
+# コンテナ起動
+cd ai-micro-front-sales && docker compose up -d
 
-## Docker操作
-
-### ビルドと起動
-
-```bash
+# ビルドと起動
 docker compose up -d --build
-```
 
-### ログ表示
-
-```bash
+# ログ確認
 docker compose logs -f front-sales
-```
 
-### 停止
+# コンテナ再起動
+docker compose restart
 
-```bash
+# 停止
 docker compose down
 ```
 
-### リビルド
-
+## Testing
 ```bash
-docker compose down
+# テスト実行（設定されている場合）
+npm run test
+```
+
+## Troubleshooting
+```bash
+# node_modulesクリア＆再インストール
+rm -rf node_modules && npm install
+
+# Next.jsキャッシュクリア
+rm -rf .next
+
+# Dockerイメージ再ビルド
 docker compose up -d --build
 ```
 
-## トラブルシューティング
-
-### node_modules問題
-
-```bash
-rm -rf node_modules package-lock.json
-npm install
-```
-
-### TypeScript型エラー
-
-```bash
-npm run type-check
-# エラー内容を確認し修正
-```
-
-### 環境変数確認
-
-```bash
-# .env.local の内容確認
-cat .env.local
-```
-
-## 関連サービス起動
-
-```bash
-# 認証サービス
-cd ../ai-micro-api-auth && docker compose up -d
-
-# Sales API
-cd ../ai-micro-api-sales && docker compose up -d
-
-# Admin API
-cd ../ai-micro-api-admin && docker compose up -d
-```
-
-## Git操作
-
-```bash
-# ステータス確認
-git status
-
-# 差分確認
-git diff
-
-# コミット
-git add . && git commit -m "feat: 機能追加"
-```
+## Environment
+- **開発URL**: http://localhost:3005
+- **Backend APIs**:
+  - Sales API: http://localhost:8005
+  - Auth API: http://localhost:8002
+  - Admin API: http://localhost:8003

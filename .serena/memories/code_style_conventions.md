@@ -1,120 +1,49 @@
-# ai-micro-front-sales コードスタイル規約
+# ai-micro-front-sales Code Style Conventions
 
-## 基本規約
+## TypeScript Standards
+- 厳格な型定義を使用
+- 型定義は`types/index.ts`に集約
+- Zodによるランタイム検証
 
-### ファイルサイズ制限
-- **最大500行**（ドキュメント除く）
-- 超過時は適切にコンポーネント分割
+## Component Patterns
+- 関数コンポーネント（アロー関数）
+- Props型は`ComponentNameProps`形式
+- PascalCase（コンポーネント）、camelCase（変数・関数）
 
-### TypeScript規約
-- **バージョン**: TypeScript 5.7+
-- **厳格モード**: `strict: true`
-- **型注釈**: 必須（any禁止）
-- **リンター**: ESLint (next/core-web-vitals)
-
-### 命名規則
-
-| 要素 | スタイル | 例 |
-|------|---------|-----|
-| コンポーネント | PascalCase | `MeetingCard.tsx` |
-| ページ | kebab-case | `meeting-detail.tsx` |
-| フック | camelCase + use接頭辞 | `useAuth.ts` |
-| ユーティリティ | camelCase | `formatDate.ts` |
-| 型 | PascalCase | `MeetingMinute` |
-| 定数 | UPPER_SNAKE_CASE | `DEFAULT_PAGE_SIZE` |
-
-### ディレクトリ規約
-
+## Directory Structure
 ```
 src/
-├── pages/          # Next.js pages (自動ルーティング)
-├── components/     # 共有コンポーネント
-│   ├── layout/     # レイアウト系
-│   └── ui/         # UIプリミティブ
-├── hooks/          # カスタムフック
-├── lib/            # ユーティリティ関数
-└── types/          # 型定義
+├── pages/           # Pages Router
+│   ├── api/         # API Routes（BFFプロキシ）
+│   │   ├── auth/    # 認証エンドポイント
+│   │   └── sales/   # Sales APIプロキシ
+│   └── ...          # ページコンポーネント
+├── components/
+│   ├── layout/      # レイアウトコンポーネント
+│   └── ui/          # Radix UIベースコンポーネント
+├── hooks/           # カスタムフック
+├── lib/             # ユーティリティ
+├── types/           # 型定義
+└── styles/          # グローバルスタイル
 ```
 
-### コンポーネント規約
+## API Route Conventions
+- `/api/auth/*`: 認証関連
+- `/api/sales/[...path]`: Sales APIへのプロキシ
+- httpOnly cookiesでJWT管理
 
-```tsx
-import { FC } from 'react';
+## Data Fetching
+- SWRによるデータフェッチ
+- カスタムフック（`use-auth.ts`）で認証状態管理
 
-interface MeetingCardProps {
-  meeting: MeetingMinute;
-  onSelect?: (id: string) => void;
-}
+## UI Components
+- Radix UIプリミティブを使用
+- Tailwind CSSでスタイリング
+- cn()ユーティリティでクラス結合
 
-export const MeetingCard: FC<MeetingCardProps> = ({
-  meeting,
-  onSelect
-}) => {
-  return (
-    <div onClick={() => onSelect?.(meeting.id)}>
-      {meeting.company_name}
-    </div>
-  );
-};
-```
-
-### API Route規約
-
-```typescript
-import type { NextApiRequest, NextApiResponse } from 'next';
-
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse
-) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-  
-  try {
-    // 処理
-    return res.status(200).json({ data });
-  } catch (error) {
-    return res.status(500).json({ error: 'Internal server error' });
-  }
-}
-```
-
-### インポート順序
-
-```typescript
-// 1. React/Next.js
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/router';
-
-// 2. サードパーティ
-import { format } from 'date-fns';
-
-// 3. UIコンポーネント
-import { Button } from '@/components/ui/button';
-
-// 4. ローカルモジュール
-import { useAuth } from '@/hooks/use-auth';
-import { MeetingMinute } from '@/types';
-```
-
-### Tailwind CSS規約
-
-```tsx
-// クラス名の順序：レイアウト → サイズ → 色 → その他
-<div className="flex items-center gap-4 p-4 w-full bg-white rounded-lg shadow-sm">
-```
-
-### フォームバリデーション
-
-```typescript
-import { z } from 'zod';
-
-export const meetingSchema = z.object({
-  company_name: z.string().min(1, '会社名は必須です'),
-  raw_text: z.string().min(10, '議事録内容は10文字以上必要です'),
-  meeting_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-});
-
-type MeetingForm = z.infer<typeof meetingSchema>;
-```
+## Import Order
+1. React/Next.js
+2. 外部ライブラリ（SWR, Radix UI等）
+3. 内部モジュール
+4. 型定義
+5. スタイル
