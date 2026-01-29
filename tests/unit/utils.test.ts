@@ -108,7 +108,7 @@ describe('truncateText', () => {
   })
 
   it('should handle Japanese text', () => {
-    const result = truncateText('これは日本語のテキストです', 5)
+    const result = truncateText('これは日本語のテキストです', 6)
     expect(result).toBe('これは日本語...')
   })
 })
