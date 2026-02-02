@@ -163,17 +163,18 @@ export default function ProposalChatPage() {
               } else if (data.type === 'info' && data.message) {
                 // Add info message with unique ID
                 const uniqueId = `info-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-                setMessages((prev) => [
-                  ...prev.filter((m) => m.id !== assistantMsgId),
-                  {
+                const infoMsg: ProposalMessage = {
                     id: uniqueId,
                     role: 'info',
                     content: data.message,
                     mediaNames: data.media_names,
                     createdAt: new Date(),
-                  },
+                  }
+                setMessages((prev) => [
+                  ...prev.filter((m) => m.id !== assistantMsgId),
+                  infoMsg,
                   prev.find((m) => m.id === assistantMsgId)!,
-                ].filter(Boolean))
+                ].filter(Boolean) as ProposalMessage[])
 
                 if (data.media_names) {
                   mediaNames = data.media_names
