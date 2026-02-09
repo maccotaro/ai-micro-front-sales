@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, FormEvent, KeyboardEvent } from 'react'
+import { useState, useEffect, useRef, useCallback, FormEvent, KeyboardEvent } from 'react'
 import ReactMarkdown from 'react-markdown'
 import { MainLayout } from '@/components/layout/main-layout'
 import { Button } from '@/components/ui/button'
@@ -6,6 +6,9 @@ import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { useToast } from '@/hooks/use-toast'
 import { useAuth } from '@/hooks/use-auth'
+import { ChatPipelineSelector } from '@/components/chat/ChatPipelineSelector'
+import { ChatModelSelector } from '@/components/chat/ChatModelSelector'
+import { OllamaModel } from '@/types'
 import { Send, Bot, User, Loader2, Package, DollarSign, RefreshCw } from 'lucide-react'
 
 interface ProposalMessage {
@@ -32,15 +35,62 @@ export default function ProposalChatPage() {
   const [selectedKB, setSelectedKB] = useState<string>('')
   const [area, setArea] = useState<string>('')
   const [loadingKBs, setLoadingKBs] = useState(false)
+  const [selectedPipeline, setSelectedPipeline] = useState<'v1' | 'v2'>(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem('proposal-chat-pipeline') as 'v1' | 'v2') || 'v1'
+    }
+    return 'v1'
+  })
+  const [selectedModel, setSelectedModel] = useState<string | undefined>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('proposal-chat-model') || undefined
+    }
+    return undefined
+  })
+  const [availableModels, setAvailableModels] = useState<OllamaModel[]>([])
+  const [defaultModel, setDefaultModel] = useState('gemma2:9b')
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
-  // Fetch knowledge bases on mount
+  // Fetch knowledge bases and models on mount
   useEffect(() => {
     if (isAuthenticated) {
       fetchKnowledgeBases()
+      fetchModels()
     }
   }, [isAuthenticated])
+
+  const fetchModels = useCallback(async () => {
+    try {
+      const response = await fetch('/api/settings/models')
+      if (response.ok) {
+        const data = await response.json()
+        const chatModels = (data.available_models || []).filter(
+          (m: OllamaModel) => m.category === 'chat'
+        )
+        setAvailableModels(chatModels)
+        if (data.settings?.chat_model) {
+          setDefaultModel(data.settings.chat_model)
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch models:', error)
+    }
+  }, [])
+
+  const handlePipelineChange = useCallback((pipeline: 'v1' | 'v2') => {
+    setSelectedPipeline(pipeline)
+    localStorage.setItem('proposal-chat-pipeline', pipeline)
+  }, [])
+
+  const handleModelChange = useCallback((model?: string) => {
+    setSelectedModel(model)
+    if (model) {
+      localStorage.setItem('proposal-chat-model', model)
+    } else {
+      localStorage.removeItem('proposal-chat-model')
+    }
+  }, [])
 
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -111,6 +161,8 @@ export default function ProposalChatPage() {
           query: userMessage,
           knowledge_base_id: selectedKB,
           area: area || undefined,
+          pipeline: selectedPipeline,
+          model: selectedModel || undefined,
         }),
       })
 
@@ -363,6 +415,20 @@ export default function ProposalChatPage() {
               >
                 <Send className="h-4 w-4" />
               </Button>
+            </div>
+            <div className="flex items-center gap-3 mt-2">
+              <ChatPipelineSelector
+                selectedPipeline={selectedPipeline}
+                onPipelineChange={handlePipelineChange}
+                disabled={isStreaming}
+              />
+              <ChatModelSelector
+                selectedModel={selectedModel}
+                defaultModel={defaultModel}
+                availableModels={availableModels}
+                onModelChange={handleModelChange}
+                disabled={isStreaming}
+              />
             </div>
           </form>
         </Card>

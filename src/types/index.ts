@@ -294,3 +294,16 @@ export interface ChatStreamChunk {
   message_id?: string
   error?: string
 }
+
+// Ollama model types (shared with front-admin)
+export type ModelCategory = 'embedding' | 'chat' | 'vlm' | 'reranker' | 'other';
+
+export interface OllamaModel {
+  name: string;
+  size: number;
+  size_display: string;
+  category: ModelCategory;
+  is_downloaded: boolean;
+  is_active: boolean;
+  modified_at?: string;
+}
