@@ -17,6 +17,8 @@ interface ProposalMessage {
   content: string
   mediaNames?: string[]
   createdAt: Date
+  pipeline?: 'v1' | 'v2'
+  chatModel?: string
 }
 
 interface KnowledgeBase {
@@ -188,6 +190,8 @@ export default function ProposalChatPage() {
           role: 'assistant',
           content: '',
           createdAt: new Date(),
+          pipeline: selectedPipeline,
+          chatModel: selectedModel || defaultModel,
         },
       ])
 
@@ -523,6 +527,24 @@ function MessageBubble({ message }: { message: ProposalMessage }) {
               <p className="text-xs text-gray-500">
                 対象媒体: {message.mediaNames.join(', ')}
               </p>
+            </div>
+          )}
+          {!isUser && (message.pipeline || message.chatModel) && (
+            <div className="flex items-center gap-1.5 mt-2 pt-1.5 border-t border-gray-200">
+              {message.pipeline && (
+                <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                  message.pipeline === 'v1'
+                    ? 'bg-blue-100 text-blue-700'
+                    : 'bg-purple-100 text-purple-700'
+                }`}>
+                  {message.pipeline}
+                </span>
+              )}
+              {message.chatModel && (
+                <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-700">
+                  {message.chatModel}
+                </span>
+              )}
             </div>
           )}
         </div>
