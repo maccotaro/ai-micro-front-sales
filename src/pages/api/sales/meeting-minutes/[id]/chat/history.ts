@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 
-const SALES_API_URL = process.env.SALES_API_URL || 'http://localhost:8005'
+const SALES_API_URL = process.env.API_GATEWAY_URL || 'http://localhost:8888'
 
 export default async function handler(
   req: NextApiRequest,
@@ -19,7 +19,7 @@ export default async function handler(
   }
 
   try {
-    const url = `${SALES_API_URL}/api/sales/meeting-minutes/${id}/chat/history`
+    const url = `${SALES_API_URL}/sales/meeting-minutes/${id}/chat/history`
 
     const response = await fetch(url, {
       method: 'GET',

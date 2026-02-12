@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 
-const SALES_API_URL = process.env.SALES_API_URL || 'http://localhost:8005'
+const SALES_API_URL = process.env.API_GATEWAY_URL || 'http://localhost:8888'
 
 // SSEストリーミングが必要なエンドポイント
 const SSE_ENDPOINTS = ['proposal-chat/stream']
@@ -28,7 +28,7 @@ export default async function handler(
   const isSSE = SSE_ENDPOINTS.some((endpoint) => pathString.includes(endpoint))
 
   try {
-    const url = `${SALES_API_URL}/api/sales/${pathString}`
+    const url = `${SALES_API_URL}/sales/${pathString}`
 
     const headers: Record<string, string> = {
       Authorization: `Bearer ${accessToken}`,

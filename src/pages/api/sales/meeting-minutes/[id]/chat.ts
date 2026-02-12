@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 
-const SALES_API_URL = process.env.SALES_API_URL || 'http://localhost:8005'
+const SALES_API_URL = process.env.API_GATEWAY_URL || 'http://localhost:8888'
 
 export const config = {
   api: {
@@ -23,7 +23,7 @@ export default async function handler(
   if (req.method === 'POST') {
     // Streaming chat request
     try {
-      const url = `${SALES_API_URL}/api/sales/meeting-minutes/${id}/chat`
+      const url = `${SALES_API_URL}/sales/meeting-minutes/${id}/chat`
 
       const response = await fetch(url, {
         method: 'POST',
@@ -82,7 +82,7 @@ export default async function handler(
   } else if (req.method === 'DELETE') {
     // Clear chat history
     try {
-      const url = `${SALES_API_URL}/api/sales/meeting-minutes/${id}/chat`
+      const url = `${SALES_API_URL}/sales/meeting-minutes/${id}/chat`
 
       const response = await fetch(url, {
         method: 'DELETE',

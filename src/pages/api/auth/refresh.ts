@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 
-const AUTH_SERVER_URL = process.env.AUTH_SERVER_URL || 'http://localhost:8002'
+const AUTH_SERVER_URL = process.env.API_GATEWAY_URL || 'http://localhost:8888'
 
 export default async function handler(
   req: NextApiRequest,

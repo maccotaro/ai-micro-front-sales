@@ -12,9 +12,7 @@ services:
       - .env
     environment:
       - NODE_ENV=${NODE_ENV:-development}
-      - AUTH_SERVER_URL=${AUTH_SERVER_URL:-http://host.docker.internal:8002}
-      - SALES_API_URL=${SALES_API_URL:-http://host.docker.internal:8005}
-      - ADMIN_API_URL=${ADMIN_API_URL:-http://host.docker.internal:8003}
+      - API_GATEWAY_URL=${API_GATEWAY_URL:-http://host.docker.internal:8888}
     command: sh -c "npm install && npm run dev"
     restart: unless-stopped
     extra_hosts:

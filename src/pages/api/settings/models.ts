@@ -9,7 +9,7 @@
 
 import type { NextApiRequest, NextApiResponse } from 'next';
 
-const ADMIN_API_URL = process.env.ADMIN_API_URL || 'http://localhost:8003';
+const ADMIN_API_URL = process.env.API_GATEWAY_URL || 'http://localhost:8888';
 
 export default async function handler(
   req: NextApiRequest,
