@@ -1,31 +1,17 @@
 import { useState, useEffect, useRef, useCallback, FormEvent, KeyboardEvent } from 'react'
-import ReactMarkdown from 'react-markdown'
 import { MainLayout } from '@/components/layout/main-layout'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card } from '@/components/ui/card'
 import { useToast } from '@/hooks/use-toast'
 import { useAuth } from '@/hooks/use-auth'
 import { ChatPipelineSelector } from '@/components/chat/ChatPipelineSelector'
 import { ChatModelSelector } from '@/components/chat/ChatModelSelector'
+import { ThinkingModeToggle } from '@/components/chat/ThinkingModeToggle'
+import { ProposalMessage, MessageBubble, WelcomeMessage } from '@/components/chat/ProposalChatMessage'
+import { ProposalChatSettings } from '@/components/chat/ProposalChatSettings'
 import { OllamaModel } from '@/types'
-import { Send, Bot, User, Loader2, Package, DollarSign, RefreshCw } from 'lucide-react'
-
-interface ProposalMessage {
-  id: string
-  role: 'user' | 'assistant' | 'info'
-  content: string
-  mediaNames?: string[]
-  createdAt: Date
-  pipeline?: 'v1' | 'v2'
-  chatModel?: string
-}
-
-interface KnowledgeBase {
-  id: string
-  name: string
-  description?: string
-}
+import { Send, Bot, Loader2, Package } from 'lucide-react'
 
 export default function ProposalChatPage() {
   const { toast } = useToast()
@@ -33,7 +19,7 @@ export default function ProposalChatPage() {
   const [input, setInput] = useState('')
   const [messages, setMessages] = useState<ProposalMessage[]>([])
   const [isStreaming, setIsStreaming] = useState(false)
-  const [knowledgeBases, setKnowledgeBases] = useState<KnowledgeBase[]>([])
+  const [knowledgeBases, setKnowledgeBases] = useState<{ id: string; name: string }[]>([])
   const [selectedKB, setSelectedKB] = useState<string>('')
   const [area, setArea] = useState<string>('')
   const [loadingKBs, setLoadingKBs] = useState(false)
@@ -51,6 +37,13 @@ export default function ProposalChatPage() {
   })
   const [availableModels, setAvailableModels] = useState<OllamaModel[]>([])
   const [defaultModel, setDefaultModel] = useState('gemma2:9b')
+  const [thinkingMode, setThinkingMode] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('proposal-chat-thinking') === 'true'
+    }
+    return false
+  })
+  const [isThinkingPhase, setIsThinkingPhase] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
@@ -92,6 +85,25 @@ export default function ProposalChatPage() {
     } else {
       localStorage.removeItem('proposal-chat-model')
     }
+    // Auto-disable thinking mode if new model doesn't support it
+    const newModel = model
+      ? availableModels.find((m) => m.name === model)
+      : availableModels.find((m) => m.name === defaultModel)
+    if (newModel && !newModel.supports_thinking) {
+      setThinkingMode(false)
+      localStorage.setItem('proposal-chat-thinking', 'false')
+    }
+  }, [availableModels, defaultModel])
+
+  const currentModelSupportsThinking = useCallback((): boolean => {
+    const modelName = selectedModel || defaultModel
+    const model = availableModels.find((m) => m.name === modelName)
+    return model?.supports_thinking ?? false
+  }, [selectedModel, defaultModel, availableModels])
+
+  const handleThinkingToggle = useCallback((enabled: boolean) => {
+    setThinkingMode(enabled)
+    localStorage.setItem('proposal-chat-thinking', String(enabled))
   }, [])
 
   // Scroll to bottom when messages change
@@ -152,6 +164,10 @@ export default function ProposalChatPage() {
     ])
 
     setIsStreaming(true)
+    const isThinkingEnabled = thinkingMode && currentModelSupportsThinking()
+    if (isThinkingEnabled) {
+      setIsThinkingPhase(true)
+    }
 
     try {
       const response = await fetch('/api/sales/proposal-chat/stream', {
@@ -165,6 +181,7 @@ export default function ProposalChatPage() {
           area: area || undefined,
           pipeline: selectedPipeline,
           model: selectedModel || undefined,
+          think: isThinkingEnabled,
         }),
       })
 
@@ -179,8 +196,12 @@ export default function ProposalChatPage() {
 
       const decoder = new TextDecoder()
       let assistantContent = ''
+      let thinkingContent = ''
       const assistantMsgId = `assistant-${Date.now()}`
       let mediaNames: string[] = []
+      const thinkingStartTime = isThinkingEnabled ? Date.now() : 0
+      let thinkingDuration: number | undefined
+      let inThinkingPhase = isThinkingEnabled
 
       // Add empty assistant message
       setMessages((prev) => [
@@ -207,17 +228,42 @@ export default function ProposalChatPage() {
             try {
               const data = JSON.parse(line.slice(6))
 
-              if (data.type === 'chunk' && data.content) {
+              if (data.type === 'thinking' && data.content && isThinkingEnabled) {
+                // 思考トークン（SSE type: "thinking"）
+                thinkingContent += data.content
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === assistantMsgId
+                      ? {
+                          ...m,
+                          thinkingContent: thinkingContent || undefined,
+                          thinkingDuration,
+                        }
+                      : m
+                  )
+                )
+              } else if ((data.type === 'chunk' || data.type === 'content') && data.content) {
+                // 通常コンテンツトークン
+                if (isThinkingEnabled && inThinkingPhase) {
+                  // 思考フェーズ終了: コンテンツが到着
+                  thinkingDuration = (Date.now() - thinkingStartTime) / 1000
+                  inThinkingPhase = false
+                  setIsThinkingPhase(false)
+                }
                 assistantContent += data.content
                 setMessages((prev) =>
                   prev.map((m) =>
                     m.id === assistantMsgId
-                      ? { ...m, content: assistantContent }
+                      ? {
+                          ...m,
+                          content: assistantContent,
+                          thinkingContent: thinkingContent || undefined,
+                          thinkingDuration,
+                        }
                       : m
                   )
                 )
               } else if (data.type === 'info' && data.message) {
-                // Add info message with unique ID
                 const uniqueId = `info-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
                 const infoMsg: ProposalMessage = {
                     id: uniqueId,
@@ -236,15 +282,22 @@ export default function ProposalChatPage() {
                   mediaNames = data.media_names
                 }
               } else if (data.type === 'done') {
-                if (data.media_names) {
-                  setMessages((prev) =>
-                    prev.map((m) =>
-                      m.id === assistantMsgId
-                        ? { ...m, mediaNames: data.media_names }
-                        : m
-                    )
-                  )
+                // 思考開始済みで未計測の場合のフォールバック
+                if (isThinkingEnabled && thinkingDuration == null && thinkingContent) {
+                  thinkingDuration = (Date.now() - thinkingStartTime) / 1000
                 }
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === assistantMsgId
+                      ? {
+                          ...m,
+                          content: assistantContent,
+                          mediaNames: data.media_names || m.mediaNames,
+                          thinkingDuration,
+                        }
+                      : m
+                  )
+                )
               } else if (data.type === 'error') {
                 throw new Error(data.error || 'Unknown error')
               }
@@ -254,6 +307,7 @@ export default function ProposalChatPage() {
           }
         }
       }
+
     } catch (error) {
       console.error('Proposal chat error:', error)
       toast({
@@ -263,6 +317,7 @@ export default function ProposalChatPage() {
       })
     } finally {
       setIsStreaming(false)
+      setIsThinkingPhase(false)
     }
   }
 
@@ -300,66 +355,15 @@ export default function ProposalChatPage() {
           </p>
         </div>
 
-        {/* Settings */}
-        <Card className="mb-6">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg">設定</CardTitle>
-            <CardDescription>検索対象のナレッジベースとエリアを選択</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  ナレッジベース
-                </label>
-                <div className="flex gap-2">
-                  <select
-                    value={selectedKB}
-                    onChange={(e) => setSelectedKB(e.target.value)}
-                    disabled={loadingKBs}
-                    className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">選択してください</option>
-                    {knowledgeBases.map((kb) => (
-                      <option key={kb.id} value={kb.id}>
-                        {kb.name}
-                      </option>
-                    ))}
-                  </select>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={fetchKnowledgeBases}
-                    disabled={loadingKBs}
-                  >
-                    <RefreshCw className={`h-4 w-4 ${loadingKBs ? 'animate-spin' : ''}`} />
-                  </Button>
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  エリア（オプション）
-                </label>
-                <select
-                  value={area}
-                  onChange={(e) => setArea(e.target.value)}
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">全国</option>
-                  <option value="関東">関東</option>
-                  <option value="関西">関西</option>
-                  <option value="東海">東海</option>
-                  <option value="北海道">北海道</option>
-                  <option value="東北">東北</option>
-                  <option value="北陸">北陸</option>
-                  <option value="中国">中国</option>
-                  <option value="四国">四国</option>
-                  <option value="九州">九州</option>
-                </select>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <ProposalChatSettings
+          knowledgeBases={knowledgeBases}
+          selectedKB={selectedKB}
+          onSelectKB={setSelectedKB}
+          area={area}
+          onSelectArea={setArea}
+          loadingKBs={loadingKBs}
+          onRefreshKBs={fetchKnowledgeBases}
+        />
 
         {/* Chat Interface */}
         <Card className="h-[600px] flex flex-col">
@@ -386,11 +390,15 @@ export default function ProposalChatPage() {
             {messages.length === 0 ? (
               <WelcomeMessage />
             ) : (
-              messages.map((message) => (
-                <MessageBubble key={message.id} message={message} />
+              messages.map((message, idx) => (
+                <MessageBubble
+                  key={message.id}
+                  message={message}
+                  isThinkingPhase={isStreaming && isThinkingPhase && idx === messages.length - 1}
+                />
               ))
             )}
-            {isStreaming && messages[messages.length - 1]?.content === '' && (
+            {isStreaming && messages[messages.length - 1]?.content === '' && !isThinkingPhase && (
               <div className="flex items-center space-x-2 text-gray-500">
                 <Loader2 className="h-4 w-4 animate-spin" />
                 <span className="text-sm">提案を生成中...</span>
@@ -433,6 +441,12 @@ export default function ProposalChatPage() {
                 onModelChange={handleModelChange}
                 disabled={isStreaming}
               />
+              <ThinkingModeToggle
+                enabled={thinkingMode}
+                onToggle={handleThinkingToggle}
+                supportsThinking={currentModelSupportsThinking()}
+                disabled={isStreaming}
+              />
             </div>
           </form>
         </Card>
@@ -441,114 +455,3 @@ export default function ProposalChatPage() {
   )
 }
 
-function WelcomeMessage() {
-  return (
-    <div className="flex flex-col items-center justify-center h-full text-center text-gray-500">
-      <Package className="h-12 w-12 mb-4 text-blue-500" />
-      <h3 className="text-lg font-medium text-gray-900 mb-2">
-        商材提案アシスタント
-      </h3>
-      <p className="mb-4 max-w-md">
-        顧客の要件や議事録を入力してください。
-        最適な商材と料金プランを提案します。
-      </p>
-      <div className="text-sm space-y-2 text-left bg-gray-50 p-4 rounded-lg">
-        <p className="font-medium text-gray-700">入力例:</p>
-        <p className="text-gray-600">
-          「飲食店で人材採用に困っている。予算は月50万円程度。関東エリアで展開している」
-        </p>
-        <p className="text-gray-600">
-          「IT企業でエンジニア採用を強化したい。採用コストを抑えつつ質の高いミドルシニアの採用を行いたい」
-        </p>
-        <p className="text-gray-600">
-          「スーパーのレジ打ちのアルバイトを募集しているが、最近は応募者が少ない」
-        </p>
-        <p className="text-gray-600">
-          「飲食店でスキマ時間で働ける方を探している。」
-        </p>
-      </div>
-    </div>
-  )
-}
-
-function MessageBubble({ message }: { message: ProposalMessage }) {
-  if (message.role === 'info') {
-    return (
-      <div className="flex justify-center">
-        <div className="bg-blue-50 text-blue-700 px-4 py-2 rounded-full text-sm flex items-center gap-2">
-          <DollarSign className="h-4 w-4" />
-          {message.content}
-          {message.mediaNames && message.mediaNames.length > 0 && (
-            <span className="font-medium">
-              ({message.mediaNames.join(', ')})
-            </span>
-          )}
-        </div>
-      </div>
-    )
-  }
-
-  const isUser = message.role === 'user'
-
-  return (
-    <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
-      <div
-        className={`flex items-start space-x-2 max-w-[85%] ${
-          isUser ? 'flex-row-reverse space-x-reverse' : ''
-        }`}
-      >
-        <div
-          className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
-            isUser ? 'bg-blue-600' : 'bg-gray-200'
-          }`}
-        >
-          {isUser ? (
-            <User className="h-4 w-4 text-white" />
-          ) : (
-            <Bot className="h-4 w-4 text-gray-600" />
-          )}
-        </div>
-        <div
-          className={`rounded-lg px-4 py-2 ${
-            isUser
-              ? 'bg-blue-600 text-white'
-              : 'bg-gray-100 text-gray-900'
-          }`}
-        >
-          {isUser ? (
-            <p className="whitespace-pre-wrap break-words">{message.content}</p>
-          ) : (
-            <div className="prose prose-sm max-w-none prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-headings:my-2">
-              <ReactMarkdown>{message.content}</ReactMarkdown>
-            </div>
-          )}
-          {message.mediaNames && message.mediaNames.length > 0 && (
-            <div className="mt-2 pt-2 border-t border-gray-200">
-              <p className="text-xs text-gray-500">
-                対象媒体: {message.mediaNames.join(', ')}
-              </p>
-            </div>
-          )}
-          {!isUser && (message.pipeline || message.chatModel) && (
-            <div className="flex items-center gap-1.5 mt-2 pt-1.5 border-t border-gray-200">
-              {message.pipeline && (
-                <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
-                  message.pipeline === 'v1'
-                    ? 'bg-blue-100 text-blue-700'
-                    : 'bg-purple-100 text-purple-700'
-                }`}>
-                  {message.pipeline}
-                </span>
-              )}
-              {message.chatModel && (
-                <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-700">
-                  {message.chatModel}
-                </span>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  )
-}

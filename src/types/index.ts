@@ -306,4 +306,5 @@ export interface OllamaModel {
   is_downloaded: boolean;
   is_active: boolean;
   modified_at?: string;
+  supports_thinking?: boolean;
 }
