@@ -13,6 +13,7 @@ import {
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/hooks/use-auth'
+import { TenantSwitcher } from '@/components/tenant-switcher'
 
 const navigation = [
   { name: 'ダッシュボード', href: '/dashboard', icon: Home },
@@ -65,12 +66,22 @@ export function Sidebar() {
 
       <div className="border-t border-gray-800 p-4">
         {user && (
-          <div className="mb-3">
-            <p className="text-sm font-medium text-white truncate">
-              {user.name || user.email}
-            </p>
-            <p className="text-xs text-gray-400 truncate">{user.email}</p>
-          </div>
+          <>
+            {user.tenants && user.tenants.length > 0 && (
+              <div className="mb-3">
+                <TenantSwitcher
+                  tenants={user.tenants}
+                  currentTenantId={user.current_tenant?.tenant_id || user.tenant_id}
+                />
+              </div>
+            )}
+            <div className="mb-3">
+              <p className="text-sm font-medium text-white truncate">
+                {user.name || user.email}
+              </p>
+              <p className="text-xs text-gray-400 truncate">{user.email}</p>
+            </div>
+          </>
         )}
         <Button
           variant="ghost"

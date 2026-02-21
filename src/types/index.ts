@@ -1,3 +1,17 @@
+// Tenant types
+export interface UserTenant {
+  id: string
+  name: string
+  slug: string
+  is_default: boolean
+}
+
+export interface CurrentTenant {
+  tenant_id: string
+  name: string
+  slug: string
+}
+
 // User types
 export interface User {
   id: string
@@ -6,6 +20,8 @@ export interface User {
   roles: string[]
   tenant_id?: string
   department?: string
+  current_tenant?: CurrentTenant | null
+  tenants?: UserTenant[]
 }
 
 // Attendee type for meeting minutes

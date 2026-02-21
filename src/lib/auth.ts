@@ -6,6 +6,20 @@ export interface AuthTokens {
   token_type: string
 }
 
+export interface TenantInfo {
+  tenant_id: string
+  name: string
+  slug: string
+  is_active: boolean
+}
+
+export interface UserTenant {
+  id: string
+  name: string
+  slug: string
+  is_default: boolean
+}
+
 export async function login(email: string, password: string): Promise<AuthTokens> {
   const response = await fetch('/api/auth/login', {
     method: 'POST',
@@ -60,4 +74,67 @@ export async function getCurrentUser(): Promise<User | null> {
 export function isAuthenticated(): boolean {
   if (typeof window === 'undefined') return false
   return document.cookie.includes('access_token')
+}
+
+// --- Tenant utilities ---
+
+export async function switchTenant(tenantId: string): Promise<{
+  tenant_id: string
+  tenant_name: string
+}> {
+  const response = await fetch('/api/auth/switch-tenant', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ tenant_id: tenantId }),
+  })
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}))
+    throw new Error(error.message || 'テナント切替に失敗しました')
+  }
+
+  return response.json()
+}
+
+export async function resolveSlug(slug: string): Promise<TenantInfo | null> {
+  try {
+    const response = await fetch(
+      `/api/auth/tenants/resolve-slug/${encodeURIComponent(slug)}`
+    )
+    if (!response.ok) {
+      return null
+    }
+    return response.json()
+  } catch {
+    return null
+  }
+}
+
+// --- Server-side utilities (for BFF API routes) ---
+
+const API_GATEWAY_URL = process.env.API_GATEWAY_URL || 'http://localhost:8888'
+
+export function getAccessTokenFromRequest(
+  cookies: Partial<{ [key: string]: string }>
+): string | undefined {
+  return cookies.access_token
+}
+
+export function buildAuthHeader(accessToken: string): Record<string, string> {
+  return { Authorization: `Bearer ${accessToken}` }
+}
+
+export function buildCookieOptions(): string {
+  return [
+    'HttpOnly',
+    'Path=/',
+    'SameSite=Lax',
+    process.env.NODE_ENV === 'production' ? 'Secure' : '',
+  ].filter(Boolean).join('; ')
+}
+
+export function getApiGatewayUrl(): string {
+  return API_GATEWAY_URL
 }

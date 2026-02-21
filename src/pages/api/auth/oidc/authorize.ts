@@ -7,7 +7,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).json({ message: 'Method not allowed' })
   }
 
-  const { provider_id, redirect_uri } = req.query
+  const { provider_id, redirect_uri, signup_tenant_id } = req.query
 
   if (!provider_id || !redirect_uri) {
     return res.status(400).json({ message: 'provider_id と redirect_uri は必須です' })
@@ -18,6 +18,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       provider_id: String(provider_id),
       redirect_uri: String(redirect_uri),
     })
+    if (signup_tenant_id) {
+      params.set('signup_tenant_id', String(signup_tenant_id))
+    }
 
     const response = await fetch(`${API_GATEWAY_URL}/auth/oidc/authorize?${params}`)
     const data = await response.json()
