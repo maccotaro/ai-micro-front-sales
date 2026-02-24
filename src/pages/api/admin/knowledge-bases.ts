@@ -21,7 +21,7 @@ export default async function handler(
     const queryString = new URLSearchParams(
       req.query as Record<string, string>
     ).toString()
-    const url = `${ADMIN_API_URL}/admin/knowledge-bases${queryString ? `?${queryString}` : ''}`
+    const url = `${ADMIN_API_URL}/admin/knowledge-bases/${queryString ? `?${queryString}` : ''}`
 
     const response = await fetch(url, {
       method: 'GET',

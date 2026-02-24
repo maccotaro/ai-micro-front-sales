@@ -344,8 +344,8 @@ export default function ProposalChatPage() {
 
   return (
     <MainLayout>
-      <div className="container mx-auto py-6 max-w-4xl">
-        <div className="mb-6">
+      <div className="flex flex-col h-[calc(100vh-3rem)] gap-4">
+        <div className="shrink-0">
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <Package className="h-6 w-6" />
             商材提案チャット
@@ -355,18 +355,20 @@ export default function ProposalChatPage() {
           </p>
         </div>
 
-        <ProposalChatSettings
-          knowledgeBases={knowledgeBases}
-          selectedKB={selectedKB}
-          onSelectKB={setSelectedKB}
-          area={area}
-          onSelectArea={setArea}
-          loadingKBs={loadingKBs}
-          onRefreshKBs={fetchKnowledgeBases}
-        />
+        <div className="shrink-0">
+          <ProposalChatSettings
+            knowledgeBases={knowledgeBases}
+            selectedKB={selectedKB}
+            onSelectKB={setSelectedKB}
+            area={area}
+            onSelectArea={setArea}
+            loadingKBs={loadingKBs}
+            onRefreshKBs={fetchKnowledgeBases}
+          />
+        </div>
 
         {/* Chat Interface */}
-        <Card className="h-[600px] flex flex-col">
+        <Card className="flex flex-col flex-1 min-h-0">
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b">
             <div className="flex items-center space-x-2">

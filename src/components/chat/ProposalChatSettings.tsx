@@ -28,7 +28,7 @@ export function ProposalChatSettings({
   onRefreshKBs,
 }: ProposalChatSettingsProps) {
   return (
-    <Card className="mb-6">
+    <Card>
       <CardHeader className="pb-3">
         <CardTitle className="text-lg">設定</CardTitle>
         <CardDescription>検索対象のナレッジベースとエリアを選択</CardDescription>
