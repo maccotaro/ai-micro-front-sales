@@ -24,6 +24,9 @@ export default async function handler(
     const data = await response.json()
 
     if (!response.ok) {
+      if (response.status === 429) {
+        return res.status(429).json({ message: 'ログイン試行回数が上限に達しました。しばらくしてから再度お試しください。' })
+      }
       return res.status(response.status).json(data)
     }
 

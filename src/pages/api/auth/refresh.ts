@@ -28,6 +28,9 @@ export default async function handler(
     const data = await response.json()
 
     if (!response.ok) {
+      if (response.status === 429) {
+        return res.status(429).json({ message: 'リクエストが多すぎます。しばらくしてから再度お試しください。' })
+      }
       // Clear invalid cookies
       res.setHeader('Set-Cookie', [
         'access_token=; Path=/; HttpOnly; Max-Age=0',
