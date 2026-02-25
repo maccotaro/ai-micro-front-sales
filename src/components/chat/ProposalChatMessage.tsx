@@ -1,4 +1,5 @@
 import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { Bot, User, DollarSign, Package } from 'lucide-react'
 import { ThinkingContent } from './ThinkingContent'
 
@@ -104,8 +105,8 @@ export function MessageBubble({
           {isUser ? (
             <p className="whitespace-pre-wrap break-words">{message.content}</p>
           ) : (
-            <div className="prose prose-sm max-w-none prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-headings:my-2">
-              <ReactMarkdown>{message.content}</ReactMarkdown>
+            <div className="prose prose-sm max-w-none prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-headings:my-2 prose-table:my-2 prose-th:px-2 prose-th:py-1 prose-td:px-2 prose-td:py-1">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
             </div>
           )}
           {message.mediaNames && message.mediaNames.length > 0 && (

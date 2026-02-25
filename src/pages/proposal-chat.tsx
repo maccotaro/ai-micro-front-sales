@@ -22,6 +22,9 @@ export default function ProposalChatPage() {
   const [knowledgeBases, setKnowledgeBases] = useState<{ id: string; name: string }[]>([])
   const [selectedKB, setSelectedKB] = useState<string>('')
   const [area, setArea] = useState<string>('')
+  const [prefecture, setPrefecture] = useState<string>('')
+  const [jobCategory, setJobCategory] = useState<string>('')
+  const [employmentType, setEmploymentType] = useState<string>('')
   const [loadingKBs, setLoadingKBs] = useState(false)
   const [selectedPipeline, setSelectedPipeline] = useState<'v1' | 'v2'>(() => {
     if (typeof window !== 'undefined') {
@@ -182,6 +185,9 @@ export default function ProposalChatPage() {
           pipeline: selectedPipeline,
           model: selectedModel || undefined,
           think: isThinkingEnabled,
+          prefecture: prefecture || undefined,
+          job_category: jobCategory || undefined,
+          employment_type: employmentType || undefined,
         }),
       })
 
@@ -216,12 +222,16 @@ export default function ProposalChatPage() {
         },
       ])
 
+      let sseBuffer = ''
       while (true) {
         const { done, value } = await reader.read()
         if (done) break
 
         const chunk = decoder.decode(value, { stream: true })
-        const lines = chunk.split('\n')
+        sseBuffer += chunk
+        const lines = sseBuffer.split('\n')
+        // 最後の要素が不完全な行の可能性があるのでバッファに残す
+        sseBuffer = lines.pop() || ''
 
         for (const line of lines) {
           if (line.startsWith('data: ')) {
@@ -251,6 +261,28 @@ export default function ProposalChatPage() {
                   setIsThinkingPhase(false)
                 }
                 assistantContent += data.content
+                // マークダウン補正
+                assistantContent = assistantContent
+                  // 見出し(##, ###)の前に空行がない場合を補正
+                  .replace(/([^\n])(#{2,} )/g, '$1\n\n$2')
+                  .replace(/([^\n])\n(#{2,} )/g, '$1\n\n$2')
+                  // テーブル行の改行補正: "| |" (行末|と次行先頭|の間) に改行挿入
+                  .replace(/\| \|/g, '|\n|')
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === assistantMsgId
+                      ? {
+                          ...m,
+                          content: assistantContent,
+                          thinkingContent: thinkingContent || undefined,
+                          thinkingDuration,
+                        }
+                      : m
+                  )
+                )
+              } else if (data.type === 'media_start' && data.media_name) {
+                // 媒体別提案の開始: 見出しを挿入
+                assistantContent += `\n\n---\n\n## 【${data.media_name}】\n\n`
                 setMessages((prev) =>
                   prev.map((m) =>
                     m.id === assistantMsgId
@@ -364,6 +396,12 @@ export default function ProposalChatPage() {
             onSelectArea={setArea}
             loadingKBs={loadingKBs}
             onRefreshKBs={fetchKnowledgeBases}
+            prefecture={prefecture}
+            onSelectPrefecture={setPrefecture}
+            jobCategory={jobCategory}
+            onSelectJobCategory={setJobCategory}
+            employmentType={employmentType}
+            onSelectEmploymentType={setEmploymentType}
           />
         </div>
 
