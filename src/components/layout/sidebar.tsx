@@ -9,6 +9,7 @@ import {
   LogOut,
   Home,
   MessageSquare,
+  Zap,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -20,6 +21,7 @@ const navigation = [
   { name: '議事録', href: '/meetings', icon: FileText },
   { name: '提案書', href: '/proposals', icon: Lightbulb },
   { name: '商材提案', href: '/proposal-chat', icon: MessageSquare },
+  { name: '提案パイプライン', href: '/proposal-pipeline', icon: Zap },
   { name: 'シミュレーション', href: '/simulation', icon: Calculator },
   { name: '類似検索', href: '/search', icon: Search },
   { name: 'グラフ推薦', href: '/graph', icon: Network },

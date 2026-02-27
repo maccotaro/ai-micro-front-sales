@@ -8,6 +8,7 @@
  */
 
 import type { NextApiRequest, NextApiResponse } from 'next';
+import { withTokenRefresh } from '@/lib/withTokenRefresh';
 
 const ADMIN_API_URL = process.env.API_GATEWAY_URL || 'http://localhost:8888';
 
@@ -20,32 +21,14 @@ export default async function handler(
     return res.status(405).json({ error: `Method ${req.method} Not Allowed` });
   }
 
-  // front-sales は access_token Cookie を使用（admin_access_token ではない）
-  const accessToken = req.cookies.access_token;
-
-  if (!accessToken) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-
-  try {
-    const response = await fetch(
+  return withTokenRefresh(req, res, async (token) => {
+    return fetch(
       `${ADMIN_API_URL}/admin/settings/models/`,
       {
         headers: {
-          Authorization: `Bearer ${accessToken}`,
+          Authorization: `Bearer ${token}`,
         },
       }
     );
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
-      return res.status(response.status).json(error);
-    }
-
-    const data = await response.json();
-    return res.status(200).json(data);
-  } catch (error) {
-    console.error('Model settings API error:', error);
-    return res.status(500).json({ error: 'Internal server error' });
-  }
+  });
 }

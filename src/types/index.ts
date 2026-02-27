@@ -324,3 +324,37 @@ export interface OllamaModel {
   modified_at?: string;
   supports_thinking?: boolean;
 }
+
+// Proposal Pipeline types
+export interface PipelineStageInfo {
+  stage: number
+  name: string
+  status: 'pending' | 'running' | 'completed' | 'skipped' | 'error'
+  content?: string
+  duration_ms?: number
+}
+
+export interface PipelineRun {
+  id: string
+  minute_id: string
+  status: string
+  total_duration_ms: number | null
+  created_at: string
+  error_stage: number | null
+  error_message: string | null
+  presentation_path: string | null
+  presentation_format: string | null
+}
+
+export interface PipelineSSEEvent {
+  type: 'pipeline_start' | 'stage_start' | 'stage_info' | 'stage_chunk' | 'stage_complete' | 'pipeline_complete' | 'result' | 'error'
+  stage?: number
+  name?: string
+  content?: string
+  duration_ms?: number
+  total_duration_ms?: number
+  skipped?: boolean
+  error?: string
+  sections?: Record<string, string>
+  run_id?: string
+}

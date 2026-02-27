@@ -18,10 +18,13 @@ import {
   MessageSquare,
   Shield,
   FileText,
+  Presentation,
 } from 'lucide-react'
 import { formatDateTime } from '@/lib/utils'
 import { Proposal } from '@/types'
 import { proposalsApi, fetcher } from '@/lib/api'
+import { proposalToMarkdown } from '@/lib/presentation'
+import { PresentationWizardDialog } from '@/components/presentation/PresentationWizardDialog'
 
 export default function ProposalDetailPage() {
   const router = useRouter()
@@ -30,6 +33,7 @@ export default function ProposalDetailPage() {
   const [feedback, setFeedback] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [showPresentation, setShowPresentation] = useState(false)
 
   const { data: proposal, error, mutate } = useSWR<Proposal>(
     id ? `/api/sales/proposals/${id}` : null,
@@ -131,14 +135,23 @@ export default function ProposalDetailPage() {
             </div>
           </div>
 
-          <Button
-            variant="destructive"
-            size="icon"
-            onClick={handleDelete}
-            disabled={isDeleting}
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
+          <div className="flex items-center space-x-2">
+            <Button
+              variant="outline"
+              onClick={() => setShowPresentation(true)}
+            >
+              <Presentation className="mr-2 h-4 w-4" />
+              プレゼン生成
+            </Button>
+            <Button
+              variant="destructive"
+              size="icon"
+              onClick={handleDelete}
+              disabled={isDeleting}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
 
         {/* Summary */}
@@ -308,6 +321,12 @@ export default function ProposalDetailPage() {
           </Card>
         )}
       </div>
+
+      <PresentationWizardDialog
+        open={showPresentation}
+        onOpenChange={setShowPresentation}
+        initialContent={proposalJson ? proposalToMarkdown(proposalJson) : ''}
+      />
     </MainLayout>
   )
 }

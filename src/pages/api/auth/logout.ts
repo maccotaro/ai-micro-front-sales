@@ -14,7 +14,7 @@ export default async function handler(
     const accessToken = req.cookies.access_token
 
     if (accessToken) {
-      // Call auth service to invalidate token
+      // Call auth service to invalidate token (best-effort)
       await fetch(`${AUTH_SERVER_URL}/auth/logout`, {
         method: 'POST',
         headers: {

@@ -1,4 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
+import { withTokenRefresh } from '@/lib/withTokenRefresh'
 
 const SALES_API_URL = process.env.API_GATEWAY_URL || 'http://localhost:8888'
 
@@ -14,14 +15,15 @@ export default async function handler(
   res: NextApiResponse
 ) {
   const { id } = req.query
-  const accessToken = req.cookies.access_token
-
-  if (!accessToken) {
-    return res.status(401).json({ message: 'Not authenticated' })
-  }
 
   if (req.method === 'POST') {
-    // Streaming chat request
+    // Streaming chat request: handle auth manually, skip withTokenRefresh
+    const accessToken = req.cookies.access_token
+
+    if (!accessToken) {
+      return res.status(401).json({ message: 'Not authenticated' })
+    }
+
     try {
       const url = `${SALES_API_URL}/sales/meeting-minutes/${id}/chat`
 
@@ -80,23 +82,17 @@ export default async function handler(
       return res.status(500).json({ message: 'Internal server error' })
     }
   } else if (req.method === 'DELETE') {
-    // Clear chat history
-    try {
+    // Clear chat history: use withTokenRefresh
+    return withTokenRefresh(req, res, async (token) => {
       const url = `${SALES_API_URL}/sales/meeting-minutes/${id}/chat`
 
-      const response = await fetch(url, {
+      return fetch(url, {
         method: 'DELETE',
         headers: {
-          Authorization: `Bearer ${accessToken}`,
+          Authorization: `Bearer ${token}`,
         },
       })
-
-      const data = await response.json().catch(() => ({}))
-      return res.status(response.status).json(data)
-    } catch (error) {
-      console.error('Chat delete error:', error)
-      return res.status(500).json({ message: 'Internal server error' })
-    }
+    })
   } else {
     res.setHeader('Allow', ['POST', 'DELETE'])
     return res.status(405).json({ message: `Method ${req.method} not allowed` })

@@ -22,11 +22,14 @@ import {
   MapPin,
   Briefcase,
   MessageSquare,
+  Presentation,
 } from 'lucide-react'
 import { formatDate, formatDateTime } from '@/lib/utils'
 import { MeetingMinute } from '@/types'
 import { meetingMinutesApi, proposalsApi, fetcher } from '@/lib/api'
 import { ChatTab } from '@/components/chat/ChatTab'
+import { meetingToMarkdown } from '@/lib/presentation'
+import { PresentationWizardDialog } from '@/components/presentation/PresentationWizardDialog'
 
 const statusLabels: Record<string, { label: string; variant: 'default' | 'secondary' | 'success' | 'warning' }> = {
   draft: { label: '下書き', variant: 'secondary' },
@@ -48,6 +51,7 @@ export default function MeetingDetailPage() {
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [showPresentation, setShowPresentation] = useState(false)
 
   const { data: meeting, error, mutate } = useSWR<MeetingMinute>(
     id ? `/api/sales/meeting-minutes/${id}` : null,
@@ -193,6 +197,13 @@ export default function MeetingDetailPage() {
                 {isGenerating ? '生成中...' : meeting.status === 'proposed' ? '再提案' : '提案生成'}
               </Button>
             )}
+            <Button
+              variant="outline"
+              onClick={() => setShowPresentation(true)}
+            >
+              <Presentation className="mr-2 h-4 w-4" />
+              プレゼン生成
+            </Button>
             <Button
               variant="destructive"
               size="icon"
@@ -435,6 +446,14 @@ export default function MeetingDetailPage() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {meeting && (
+        <PresentationWizardDialog
+          open={showPresentation}
+          onOpenChange={setShowPresentation}
+          initialContent={meetingToMarkdown(meeting)}
+        />
+      )}
     </MainLayout>
   )
 }
