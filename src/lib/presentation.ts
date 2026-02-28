@@ -1,4 +1,4 @@
-import type { ProposalJson, MeetingMinute, PipelineStageInfo } from '@/types'
+import type { MeetingMinute, PipelineStageInfo } from '@/types'
 
 // --- Presenton API Types ---
 
@@ -82,54 +82,6 @@ export const verbosityLabels: Record<string, string> = {
 }
 
 // --- Markdown Conversion Utilities ---
-
-export function proposalToMarkdown(proposalJson: ProposalJson): string {
-  const lines: string[] = []
-
-  lines.push(`# ${proposalJson.title || '提案書'}`)
-  lines.push('')
-
-  if (proposalJson.summary) {
-    lines.push(`## サマリー`)
-    lines.push('')
-    lines.push(proposalJson.summary)
-    lines.push('')
-  }
-
-  if (proposalJson.recommended_products && proposalJson.recommended_products.length > 0) {
-    lines.push(`## 推奨製品`)
-    lines.push('')
-    lines.push('| 製品名 | カテゴリ | マッチ度 | 理由 |')
-    lines.push('|--------|----------|----------|------|')
-    for (const p of proposalJson.recommended_products) {
-      const score = Math.round(p.match_score * 100)
-      lines.push(`| ${p.product_name} | ${p.category || '-'} | ${score}% | ${p.reason} |`)
-    }
-    lines.push('')
-  }
-
-  if (proposalJson.talking_points && proposalJson.talking_points.length > 0) {
-    lines.push(`## トーキングポイント`)
-    lines.push('')
-    for (const point of proposalJson.talking_points) {
-      lines.push(`- ${point}`)
-    }
-    lines.push('')
-  }
-
-  if (proposalJson.objection_handlers && Object.keys(proposalJson.objection_handlers).length > 0) {
-    lines.push(`## 反論対応`)
-    lines.push('')
-    for (const [objection, response] of Object.entries(proposalJson.objection_handlers)) {
-      lines.push(`### ${objection}`)
-      lines.push('')
-      lines.push(response)
-      lines.push('')
-    }
-  }
-
-  return lines.join('\n')
-}
 
 export function meetingToMarkdown(meeting: MeetingMinute): string {
   const lines: string[] = []

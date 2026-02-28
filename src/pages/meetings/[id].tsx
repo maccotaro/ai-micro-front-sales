@@ -11,7 +11,6 @@ import { useToast } from '@/hooks/use-toast'
 import {
   ArrowLeft,
   Brain,
-  Lightbulb,
   Trash2,
   Calendar,
   Building2,
@@ -23,10 +22,11 @@ import {
   Briefcase,
   MessageSquare,
   Presentation,
+  Zap,
 } from 'lucide-react'
 import { formatDate, formatDateTime } from '@/lib/utils'
 import { MeetingMinute } from '@/types'
-import { meetingMinutesApi, proposalsApi, fetcher } from '@/lib/api'
+import { meetingMinutesApi, fetcher } from '@/lib/api'
 import { ChatTab } from '@/components/chat/ChatTab'
 import { meetingToMarkdown } from '@/lib/presentation'
 import { PresentationWizardDialog } from '@/components/presentation/PresentationWizardDialog'
@@ -49,7 +49,6 @@ export default function MeetingDetailPage() {
   const { id } = router.query
   const { toast } = useToast()
   const [isAnalyzing, setIsAnalyzing] = useState(false)
-  const [isGenerating, setIsGenerating] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [showPresentation, setShowPresentation] = useState(false)
 
@@ -57,6 +56,12 @@ export default function MeetingDetailPage() {
     id ? `/api/sales/meeting-minutes/${id}` : null,
     fetcher
   )
+
+  const { data: runsData } = useSWR<{ total: number }>(
+    id ? `/api/sales/proposal-pipeline/runs?minute_id=${id}&page=1&page_size=1` : null,
+    fetcher
+  )
+  const runCount = runsData?.total ?? 0
 
   const handleAnalyze = async () => {
     if (!id) return
@@ -76,28 +81,6 @@ export default function MeetingDetailPage() {
       })
     } finally {
       setIsAnalyzing(false)
-    }
-  }
-
-  const handleGenerateProposal = async () => {
-    if (!id) return
-    setIsGenerating(true)
-    try {
-      const proposal = await proposalsApi.generate(id as string)
-      await mutate()
-      toast({
-        title: '提案生成完了',
-        description: '提案書が生成されました',
-      })
-      router.push(`/proposals/${proposal.id}`)
-    } catch (error) {
-      toast({
-        variant: 'destructive',
-        title: 'エラー',
-        description: error instanceof Error ? error.message : '提案生成に失敗しました',
-      })
-    } finally {
-      setIsGenerating(false)
     }
   }
 
@@ -191,10 +174,18 @@ export default function MeetingDetailPage() {
                 {isAnalyzing ? '解析中...' : meeting.status === 'draft' ? 'AI解析' : '再解析'}
               </Button>
             )}
-            {meeting.parsed_json && meeting.status !== 'closed' && (
-              <Button onClick={handleGenerateProposal} disabled={isGenerating}>
-                <Lightbulb className="mr-2 h-4 w-4" />
-                {isGenerating ? '生成中...' : meeting.status === 'proposed' ? '再提案' : '提案生成'}
+            <Button
+              variant="outline"
+              onClick={() => router.push(`/proposal-pipeline?minute_id=${id}`)}
+            >
+              <Zap className="mr-2 h-4 w-4" />
+              パイプライン生成
+            </Button>
+            {runCount > 0 && (
+              <Button variant="outline" onClick={() => router.push(`/proposal-pipeline?minute_id=${id}&show_result=1&from=meeting`)}>
+                <Zap className="mr-2 h-4 w-4" />
+                生成済み提案
+                <Badge variant="secondary" className="ml-2">{runCount}</Badge>
               </Button>
             )}
             <Button

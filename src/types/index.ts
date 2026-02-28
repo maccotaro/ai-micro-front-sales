@@ -19,6 +19,7 @@ export interface User {
   name?: string
   roles: string[]
   tenant_id?: string
+  current_tenant_id?: string
   department?: string
   current_tenant?: CurrentTenant | null
   tenants?: UserTenant[]
@@ -81,46 +82,6 @@ export interface Issue {
   category: string
   description: string
   priority: 'high' | 'medium' | 'low'
-}
-
-// Proposal types
-export interface Proposal {
-  id: string
-  meeting_minute_id: string
-  proposal_json: ProposalJson
-  recommended_products: string[]  // Array of product IDs
-  simulation_results?: SimulationResults
-  feedback?: string | null
-  feedback_comment?: string | null
-  created_by: string
-  created_at: string
-  updated_at: string
-}
-
-export interface ProposalJson {
-  title: string
-  summary: string
-  talking_points: string[]
-  objection_handlers: Record<string, string>  // { "objection": "response" }
-  recommended_products: ProposedProduct[]
-}
-
-export interface ProposedProduct {
-  product_id: string
-  product_name: string
-  category?: string
-  match_score: number
-  reason: string
-}
-
-export interface SimulationResults {
-  applicable_campaigns: AppliedCampaign[]
-}
-
-// Legacy ObjectionHandler for backward compatibility
-export interface ObjectionHandler {
-  objection: string
-  response: string
 }
 
 // Simulation types
@@ -344,6 +305,7 @@ export interface PipelineRun {
   error_message: string | null
   presentation_path: string | null
   presentation_format: string | null
+  minio_object_key: string | null
 }
 
 export interface PipelineSSEEvent {
@@ -355,6 +317,140 @@ export interface PipelineSSEEvent {
   total_duration_ms?: number
   skipped?: boolean
   error?: string
-  sections?: Record<string, string>
+  sections?: Array<{ stage: number; title: string; content: string }>
   run_id?: string
+}
+
+// Stage 2: Shochikubai (松竹梅) types
+export interface ShochikubaiItem {
+  media_name: string
+  product_name: string
+  price: number
+  period: string
+  campaign_discount?: number | null
+  final_price: number
+}
+
+export interface ShochikubaiTier {
+  items: ShochikubaiItem[]
+  total_price: number
+  expected_effect: string
+  rationale: string
+}
+
+export interface ShochikubaiProposal {
+  issue_id: string
+  shochikubai: {
+    matsu: ShochikubaiTier
+    take: ShochikubaiTier
+    ume: ShochikubaiTier
+  }
+  recommended: string
+  recommendation_reason: string
+}
+
+export interface ReverseTimelineEntry {
+  date: string
+  milestone: string
+  action: string
+}
+
+export interface TrendImpactData {
+  relevant_trends: string[]
+  impact_analysis: string
+  recommendations: string[]
+}
+
+export interface Stage2Output {
+  proposals: ShochikubaiProposal[]
+  total_budget_range?: {
+    matsu_total: number
+    take_total: number
+    ume_total: number
+  }
+  over_budget_justification?: {
+    exceeded_amount: number
+    roi_rationale: string
+    comparison_with_budget_plan: string
+  }
+  reverse_timeline?: ReverseTimelineEntry[]
+  seasonal_context?: string
+  trend_impact?: TrendImpactData
+  agenda_items?: string[]
+}
+
+// Stage 3: Coaching types
+export interface DeepDiveQuestion {
+  topic: string
+  question: string
+  follow_up: string
+  purpose: string
+  related_issue_id: string
+}
+
+export interface ObjectionHandling {
+  objection: string
+  response: string
+  evidence: string
+  related_issue_id: string
+}
+
+export interface TalkScriptPhase {
+  phase: string
+  title: string
+  duration_minutes: number
+  key_points: string[]
+}
+
+export interface SalesCoaching {
+  deep_dive_questions: DeepDiveQuestion[]
+  objection_handling: ObjectionHandling[]
+  talk_script_outline: TalkScriptPhase[]
+}
+
+export interface FollowUpEmail {
+  subject: string
+  body: string
+  attachments_needed: string[]
+}
+
+export interface CalendarEvent {
+  title: string
+  date_offset_days: number
+  duration_minutes: number
+  description: string
+}
+
+export interface FollowUpTask {
+  title: string
+  due_offset_days: number
+  assignee: string
+  priority: 'high' | 'medium' | 'low'
+}
+
+export interface FollowUpActions {
+  email_draft: FollowUpEmail
+  calendar_events: CalendarEvent[]
+  tasks: FollowUpTask[]
+}
+
+// Stage 4: Fact check types
+export interface FactCheckClaim {
+  claim: string
+  source: string
+  status: 'verified' | 'unverified' | 'contradicted'
+  note: string
+}
+
+export interface FactCheckResult {
+  claims: FactCheckClaim[]
+  summary: string
+}
+
+// Stage 5: Reference document types
+export interface ReferenceDocument {
+  name: string
+  url: string
+  category: string
+  usage: string
 }

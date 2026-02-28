@@ -111,18 +111,18 @@ export function PresentationSettings({ settings, onChange }: PresentationSetting
       <div className="space-y-1.5">
         <Label>出力形式</Label>
         <div className="flex gap-2">
-          {(['pptx', 'pdf'] as const).map((fmt) => (
+          {(['pptx', 'pdf'] as const).map((format) => (
             <button
-              key={fmt}
+              key={format}
               type="button"
               className={`px-4 py-1.5 text-sm rounded-md border transition-colors ${
-                settings.export_as === fmt
+                settings.export_as === format
                   ? 'bg-primary text-white border-primary'
                   : 'bg-white text-gray-700 border-gray-300 hover:border-gray-400'
               }`}
-              onClick={() => update('export_as', fmt)}
+              onClick={() => update('export_as', format)}
             >
-              {fmt.toUpperCase()}
+              {format.toUpperCase()}
             </button>
           ))}
         </div>

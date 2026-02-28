@@ -17,8 +17,19 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
-  const { path } = req.query
+  const { path, ...queryParams } = req.query
   const pathString = Array.isArray(path) ? path.join('/') : path || ''
+
+  // Build query string from remaining query params (excluding path segments)
+  const qs = new URLSearchParams()
+  for (const [key, value] of Object.entries(queryParams)) {
+    if (Array.isArray(value)) {
+      value.forEach((v) => qs.append(key, v))
+    } else if (value != null) {
+      qs.append(key, value)
+    }
+  }
+  const queryString = qs.toString()
 
   const isSSE = SSE_ENDPOINTS.some((endpoint) => pathString.includes(endpoint))
 
@@ -30,7 +41,7 @@ export default async function handler(
     }
 
     try {
-      const url = `${SALES_API_URL}/sales/${pathString}`
+      const url = `${SALES_API_URL}/sales/${pathString}${queryString ? `?${queryString}` : ''}`
 
       const headers: Record<string, string> = {
         Authorization: `Bearer ${accessToken}`,
@@ -80,7 +91,7 @@ export default async function handler(
 
   // Non-SSE: use withTokenRefresh for automatic retry
   return withTokenRefresh(req, res, async (token) => {
-    const url = `${SALES_API_URL}/sales/${pathString}`
+    const url = `${SALES_API_URL}/sales/${pathString}${queryString ? `?${queryString}` : ''}`
 
     const headers: Record<string, string> = {
       Authorization: `Bearer ${token}`,

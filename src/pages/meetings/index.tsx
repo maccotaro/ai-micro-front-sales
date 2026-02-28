@@ -6,17 +6,12 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
-import { Plus, Search, FileText, Calendar, Building2 } from 'lucide-react'
+import { Plus, Search, FileText, Calendar, Building2, ChevronLeft, ChevronRight } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import { fetcher } from '@/lib/api'
-import { MeetingMinute } from '@/types'
+import { MeetingMinute, PaginatedResponse } from '@/types'
 
-interface PaginatedResponse<T> {
-  items: T[]
-  total: number
-  page: number
-  page_size: number
-}
+const PAGE_SIZE = 20
 
 const statusLabels: Record<string, { label: string; variant: 'default' | 'secondary' | 'success' | 'warning' }> = {
   draft: { label: '下書き', variant: 'secondary' },
@@ -27,10 +22,12 @@ const statusLabels: Record<string, { label: string; variant: 'default' | 'second
 
 export default function MeetingsPage() {
   const [searchQuery, setSearchQuery] = useState('')
+  const [page, setPage] = useState(1)
   const { data, error, isLoading } = useSWR<PaginatedResponse<MeetingMinute>>(
-    '/api/sales/meeting-minutes',
+    `/api/sales/meeting-minutes?page=${page}&page_size=${PAGE_SIZE}`,
     fetcher
   )
+  const totalPages = data ? Math.ceil(data.total / PAGE_SIZE) : 0
 
   const meetings = data?.items ?? []
   const filteredMeetings = meetings.filter(
@@ -63,7 +60,10 @@ export default function MeetingsPage() {
           <Input
             placeholder="会社名、業種、地域で検索..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => {
+              setSearchQuery(e.target.value)
+              setPage(1)
+            }}
             className="pl-10"
           />
         </div>
@@ -97,39 +97,73 @@ export default function MeetingsPage() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid gap-4">
-            {filteredMeetings.map((meeting) => (
-              <Link key={meeting.id} href={`/meetings/${meeting.id}`}>
-                <Card className="hover:shadow-md transition-shadow cursor-pointer">
-                  <CardHeader className="pb-2">
-                    <div className="flex items-start justify-between">
-                      <CardTitle className="text-lg">{meeting.company_name}</CardTitle>
-                      <Badge variant={statusLabels[meeting.status]?.variant}>
-                        {statusLabels[meeting.status]?.label || meeting.status}
-                      </Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex items-center space-x-4 text-sm text-gray-500">
-                      <div className="flex items-center">
-                        <Calendar className="mr-1 h-4 w-4" />
-                        {meeting.meeting_date ? formatDate(meeting.meeting_date) : '-'}
+          <>
+            <div className="grid gap-4">
+              {filteredMeetings.map((meeting) => (
+                <Link key={meeting.id} href={`/meetings/${meeting.id}`}>
+                  <Card className="hover:shadow-md transition-shadow cursor-pointer">
+                    <CardHeader className="pb-2">
+                      <div className="flex items-start justify-between">
+                        <CardTitle className="text-lg">{meeting.company_name}</CardTitle>
+                        <Badge variant={statusLabels[meeting.status]?.variant}>
+                          {statusLabels[meeting.status]?.label || meeting.status}
+                        </Badge>
                       </div>
-                      {meeting.industry && (
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex items-center space-x-4 text-sm text-gray-500">
                         <div className="flex items-center">
-                          <Building2 className="mr-1 h-4 w-4" />
-                          {meeting.industry}
+                          <Calendar className="mr-1 h-4 w-4" />
+                          {meeting.meeting_date ? formatDate(meeting.meeting_date) : '-'}
                         </div>
-                      )}
-                      {meeting.area && (
-                        <span className="text-gray-400">{meeting.area}</span>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              </Link>
-            ))}
-          </div>
+                        {meeting.industry && (
+                          <div className="flex items-center">
+                            <Building2 className="mr-1 h-4 w-4" />
+                            {meeting.industry}
+                          </div>
+                        )}
+                        {meeting.area && (
+                          <span className="text-gray-400">{meeting.area}</span>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </Link>
+              ))}
+            </div>
+
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between pt-2">
+                <p className="text-sm text-gray-500">
+                  全 {data?.total ?? 0} 件中 {(page - 1) * PAGE_SIZE + 1}–
+                  {Math.min(page * PAGE_SIZE, data?.total ?? 0)} 件
+                </p>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={page <= 1}
+                    onClick={() => setPage((p) => p - 1)}
+                  >
+                    <ChevronLeft className="h-4 w-4 mr-1" />
+                    前へ
+                  </Button>
+                  <span className="text-sm text-gray-600">
+                    {page} / {totalPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={page >= totalPages}
+                    onClick={() => setPage((p) => p + 1)}
+                  >
+                    次へ
+                    <ChevronRight className="h-4 w-4 ml-1" />
+                  </Button>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
     </MainLayout>

@@ -24,7 +24,7 @@ export function useAuth() {
     // Force immediate refetch and wait for the result
     const userData = await getCurrentUser()
     await mutate(userData, { revalidate: false })
-    router.push('/dashboard')
+    router.push('/meetings')
   }, [mutate, router])
 
   const logout = useCallback(async () => {

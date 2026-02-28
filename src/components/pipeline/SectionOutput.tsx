@@ -1,12 +1,120 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ChevronDown, ChevronRight, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import { Stage2Output, SalesCoaching, FollowUpActions, FactCheckResult, ReferenceDocument } from '@/types'
+import { ShochikubaiComparison, BudgetRange } from './ShochikubaiComparison'
+import { ReverseTimeline } from './ReverseTimeline'
+import { SeasonalContext } from './SeasonalContext'
+import { TrendImpact } from './TrendImpact'
+import { CoachingTips } from './CoachingTips'
+import { FollowupActions } from './FollowupActions'
+import { FactCheckWarnings } from './FactCheckWarnings'
+import { ResourceLinks } from './ResourceLinks'
 
 interface SectionOutputProps {
   sections: { stage: number; name: string; content: string; isStreaming?: boolean }[]
+}
+
+function tryParseJSON(content: string): Record<string, unknown> | null {
+  try {
+    const trimmed = content.trim()
+    // Skip if content looks like markdown (starts with # or -)
+    if (trimmed.startsWith('#') || trimmed.startsWith('-')) return null
+    // Try to find JSON in content (may be wrapped in markdown code block)
+    let jsonStr = trimmed
+    if (jsonStr.startsWith('```')) {
+      const lines = jsonStr.split('\n')
+      lines.shift() // remove ```json
+      if (lines[lines.length - 1]?.trim() === '```') lines.pop()
+      jsonStr = lines.join('\n')
+    }
+    const parsed = JSON.parse(jsonStr)
+    return typeof parsed === 'object' && parsed !== null ? parsed : null
+  } catch {
+    return null
+  }
+}
+
+function extractBudgetFromStage1(sections: SectionOutputProps['sections']): BudgetRange | null {
+  const stage1 = sections.find((s) => s.stage === 1)
+  if (!stage1?.content) return null
+  const parsed = tryParseJSON(stage1.content)
+  if (!parsed) return null
+  const issues = (parsed as Record<string, unknown>).issues as Array<Record<string, unknown>> | undefined
+  if (!issues?.length) return null
+  for (const issue of issues) {
+    const bant = issue.bant_c as Record<string, unknown> | undefined
+    const budget = bant?.budget as Record<string, unknown> | undefined
+    const est = budget?.estimated_range as { min?: number | null; max?: number | null } | undefined
+    if (est && (est.min != null || est.max != null)) {
+      return { min: est.min ?? null, max: est.max ?? null }
+    }
+  }
+  return null
+}
+
+function StructuredContent({ stage, content, isStreaming, allSections }: {
+  stage: number
+  content: string
+  isStreaming?: boolean
+  allSections: SectionOutputProps['sections']
+}) {
+  const parsed = useMemo(() => {
+    if (isStreaming) return null
+    return tryParseJSON(content)
+  }, [content, isStreaming])
+
+  if (!parsed) return null
+
+  if (stage === 2) {
+    const data = parsed as unknown as Stage2Output
+    const hasShochikubai = data.proposals?.[0]?.shochikubai
+    if (!hasShochikubai && !data.reverse_timeline && !data.seasonal_context && !data.trend_impact) return null
+    const customerBudget = hasShochikubai ? extractBudgetFromStage1(allSections) : null
+    return (
+      <>
+        {hasShochikubai && (
+          <ShochikubaiComparison
+            proposals={data.proposals}
+            totalBudgetRange={data.total_budget_range}
+            customerBudget={customerBudget}
+          />
+        )}
+        {data.reverse_timeline && <ReverseTimeline entries={data.reverse_timeline} />}
+        {data.seasonal_context && <SeasonalContext context={data.seasonal_context} />}
+        {data.trend_impact && <TrendImpact data={data.trend_impact} />}
+      </>
+    )
+  }
+
+  if (stage === 3) {
+    const coaching = (parsed as Record<string, unknown>).sales_coaching as SalesCoaching | undefined
+    const followUp = (parsed as Record<string, unknown>).follow_up_actions as FollowUpActions | undefined
+    if (!coaching && !followUp) return null
+    return (
+      <>
+        {coaching && <CoachingTips coaching={coaching} />}
+        {followUp && <FollowupActions actions={followUp} />}
+      </>
+    )
+  }
+
+  if (stage === 5) {
+    const factCheck = (parsed as Record<string, unknown>).fact_check as FactCheckResult | undefined
+    const refDocs = (parsed as Record<string, unknown>).reference_documents as ReferenceDocument[] | undefined
+    if (!factCheck && !refDocs?.length) return null
+    return (
+      <>
+        {factCheck && <FactCheckWarnings factCheck={factCheck} />}
+        {refDocs && refDocs.length > 0 && <ResourceLinks documents={refDocs} />}
+      </>
+    )
+  }
+
+  return null
 }
 
 function MarkdownContent({ content }: { content: string }) {
@@ -74,15 +182,35 @@ function SectionCard({
   name,
   content,
   isStreaming,
+  allSections,
   defaultOpen = true,
 }: {
   stage: number
   name: string
   content: string
   isStreaming?: boolean
+  allSections: SectionOutputProps['sections']
   defaultOpen?: boolean
 }) {
   const [isOpen, setIsOpen] = useState(defaultOpen)
+
+  // Check if structured content will render (to hide raw markdown/JSON)
+  const hasStructured = useMemo(() => {
+    if (isStreaming) return false
+    const parsed = tryParseJSON(content)
+    if (!parsed) return false
+    if (stage === 2) {
+      const data = parsed as unknown as Stage2Output
+      return !!(data.proposals?.[0]?.shochikubai || data.reverse_timeline || data.seasonal_context || data.trend_impact)
+    }
+    if (stage === 3) {
+      return !!((parsed as Record<string, unknown>).sales_coaching || (parsed as Record<string, unknown>).follow_up_actions)
+    }
+    if (stage === 5) {
+      return !!((parsed as Record<string, unknown>).fact_check || ((parsed as Record<string, unknown>).reference_documents as unknown[] | undefined)?.length)
+    }
+    return false
+  }, [content, isStreaming, stage])
 
   return (
     <Card className="overflow-hidden">
@@ -110,12 +238,13 @@ function SectionCard({
       <div
         className={cn(
           'transition-all duration-200 overflow-hidden',
-          isOpen ? 'max-h-[2000px]' : 'max-h-0'
+          isOpen ? 'max-h-[5000px]' : 'max-h-0'
         )}
       >
         <CardContent className="pt-0 px-4 pb-4">
-          <div className="bg-gray-50 rounded-lg p-4 max-h-96 overflow-y-auto">
-            <MarkdownContent content={content} />
+          <div className="bg-gray-50 rounded-lg p-4 max-h-[600px] overflow-y-auto">
+            <StructuredContent stage={stage} content={content} isStreaming={isStreaming} allSections={allSections} />
+            {!hasStructured && <MarkdownContent content={content} />}
             {isStreaming && (
               <span className="inline-block w-2 h-4 bg-blue-500 animate-pulse ml-0.5" />
             )}
@@ -137,13 +266,14 @@ export function SectionOutput({ sections }: SectionOutputProps) {
 
   return (
     <div className="space-y-3">
-      {sections.map((section) => (
+      {sections.map((section, idx) => (
         <SectionCard
-          key={section.stage}
+          key={`${section.stage}-${idx}`}
           stage={section.stage}
           name={section.name}
           content={section.content}
           isStreaming={section.isStreaming}
+          allSections={sections}
         />
       ))}
     </div>

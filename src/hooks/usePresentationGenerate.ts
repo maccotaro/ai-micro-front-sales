@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import type {
   GeneratePresentationRequest,
   AsyncTaskResponse,
@@ -26,6 +26,7 @@ interface UsePresentationGenerateReturn {
 }
 
 const POLL_INTERVAL = 2000
+const MAX_POLL_ERRORS = 3
 
 export function usePresentationGenerate(
   options?: UsePresentationGenerateOptions,
@@ -37,6 +38,7 @@ export function usePresentationGenerate(
   const [templates, setTemplates] = useState<PresentationTemplate[]>([])
   const [templatesLoading, setTemplatesLoading] = useState(false)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const pollErrorCountRef = useRef(0)
   const onCompletedRef = useRef(options?.onCompleted)
   onCompletedRef.current = options?.onCompleted
 
@@ -44,6 +46,17 @@ export function usePresentationGenerate(
     if (pollRef.current) {
       clearInterval(pollRef.current)
       pollRef.current = null
+    }
+    pollErrorCountRef.current = 0
+  }, [])
+
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => {
+      if (pollRef.current) {
+        clearInterval(pollRef.current)
+        pollRef.current = null
+      }
     }
   }, [])
 
@@ -78,11 +91,22 @@ export function usePresentationGenerate(
 
   const pollStatus = useCallback((id: string) => {
     setState('polling')
+    pollErrorCountRef.current = 0
 
     pollRef.current = setInterval(async () => {
       try {
         const res = await fetch(`/api/presentation/status/${id}`)
-        if (!res.ok) throw new Error('Status check failed')
+        if (!res.ok) {
+          // Tolerate transient errors (rate limit, network blip) up to MAX_POLL_ERRORS
+          pollErrorCountRef.current += 1
+          if (pollErrorCountRef.current >= MAX_POLL_ERRORS) {
+            throw new Error(`ステータス確認に${MAX_POLL_ERRORS}回連続で失敗しました (HTTP ${res.status})`)
+          }
+          return // skip this poll, retry next interval
+        }
+
+        // Reset error count on success
+        pollErrorCountRef.current = 0
 
         const data: TaskStatusResponse = await res.json()
         setStatus(data)

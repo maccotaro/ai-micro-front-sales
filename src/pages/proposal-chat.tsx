@@ -15,7 +15,7 @@ import { Send, Bot, Loader2, Package } from 'lucide-react'
 
 export default function ProposalChatPage() {
   const { toast } = useToast()
-  const { isAuthenticated, isLoading: authLoading } = useAuth()
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth()
   const [input, setInput] = useState('')
   const [messages, setMessages] = useState<ProposalMessage[]>([])
   const [isStreaming, setIsStreaming] = useState(false)
@@ -50,13 +50,13 @@ export default function ProposalChatPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
-  // Fetch knowledge bases and models on mount
+  // Fetch knowledge bases and models on mount / tenant change
   useEffect(() => {
     if (isAuthenticated) {
       fetchKnowledgeBases()
       fetchModels()
     }
-  }, [isAuthenticated])
+  }, [isAuthenticated, user?.current_tenant_id])
 
   const fetchModels = useCallback(async () => {
     try {
@@ -117,7 +117,8 @@ export default function ProposalChatPage() {
   const fetchKnowledgeBases = async () => {
     setLoadingKBs(true)
     try {
-      const response = await fetch('/api/admin/knowledge-bases?limit=100')
+      const tenantParam = user?.current_tenant_id ? `&tenant_id=${user.current_tenant_id}` : ''
+      const response = await fetch(`/api/admin/knowledge-bases?limit=100${tenantParam}`)
       if (response.ok) {
         const data = await response.json()
         setKnowledgeBases(data.knowledge_bases || [])
@@ -354,7 +355,7 @@ export default function ProposalChatPage() {
   }
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
       e.preventDefault()
       handleSubmit(e as unknown as FormEvent)
     }

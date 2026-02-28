@@ -1,6 +1,5 @@
 import {
   MeetingMinute,
-  Proposal,
   SimulationResult,
   QuickEstimateResponse,
   GraphRecommendation,
@@ -94,7 +93,12 @@ async function fetchApi<T>(
     throw new Error(error.detail || error.message || `API Error: ${response.status}`)
   }
 
-  return response.json()
+  const text = await response.text()
+  if (!text) {
+    return undefined as T
+  }
+
+  return JSON.parse(text)
 }
 
 // Meeting Minutes API
@@ -148,31 +152,6 @@ export const meetingMinutesApi = {
 
   getAnalysis: (id: string) =>
     fetchApi<MeetingMinute>(`/meeting-minutes/${id}/analysis`),
-}
-
-// Proposals API
-export const proposalsApi = {
-  list: (params?: { page?: number; page_size?: number }) =>
-    fetchApi<Proposal[]>('/proposals', { params }),
-
-  get: (id: string) =>
-    fetchApi<Proposal>(`/proposals/${id}`),
-
-  generate: (minuteId: string) =>
-    fetchApi<Proposal>(`/proposals/generate/${minuteId}`, {
-      method: 'POST',
-    }),
-
-  updateFeedback: (id: string, data: { feedback: string; feedback_comment?: string }) =>
-    fetchApi<Proposal>(`/proposals/${id}/feedback`, {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    }),
-
-  delete: (id: string) =>
-    fetchApi<{ message: string }>(`/proposals/${id}`, {
-      method: 'DELETE',
-    }),
 }
 
 // Simulation API
@@ -290,7 +269,6 @@ export const graphApi = {
 
 export default {
   meetingMinutes: meetingMinutesApi,
-  proposals: proposalsApi,
   simulation: simulationApi,
   search: searchApi,
   graph: graphApi,

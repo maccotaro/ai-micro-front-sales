@@ -61,7 +61,7 @@ export function ChatTab({ meetingMinuteId, companyName, isAnalyzed }: ChatTabPro
   }
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
       e.preventDefault()
       handleSubmit(e as unknown as FormEvent)
     }

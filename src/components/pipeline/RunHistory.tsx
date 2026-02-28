@@ -9,6 +9,7 @@ interface RunHistoryProps {
   refreshKey?: number
   selectedRunId?: string | null
   onSelectRun?: (runId: string) => void
+  minuteId?: string
 }
 
 interface RunsResponse {
@@ -57,9 +58,16 @@ function formatDuration(ms: number | null): string {
   return `${(ms / 1000).toFixed(1)}s`
 }
 
-export function RunHistory({ refreshKey, selectedRunId, onSelectRun }: RunHistoryProps) {
+export function RunHistory({ refreshKey, selectedRunId, onSelectRun, minuteId }: RunHistoryProps) {
+  const params = new URLSearchParams({
+    page: '1',
+    page_size: '10',
+    _k: String(refreshKey || 0),
+  })
+  if (minuteId) params.set('minute_id', minuteId)
+
   const { data, isLoading } = useSWR<RunsResponse>(
-    `/api/sales/proposal-pipeline/runs?page=1&page_size=10&_k=${refreshKey || 0}`,
+    `/api/sales/proposal-pipeline/runs?${params.toString()}`,
     fetcher,
     { refreshInterval: 0 }
   )
@@ -119,16 +127,16 @@ export function RunHistory({ refreshKey, selectedRunId, onSelectRun }: RunHistor
               )}
             </div>
             <div className="flex items-center gap-1 flex-shrink-0 ml-2">
-              {run.presentation_path && (
+              {(run.minio_object_key || run.presentation_path) && (
                 <button
                   title="プレゼンをダウンロード"
                   className="p-1 rounded hover:bg-gray-200 text-gray-400 hover:text-blue-600 transition-colors"
                   onClick={(e) => {
                     e.stopPropagation()
-                    window.open(
-                      `/api/presentation/download?path=${encodeURIComponent(run.presentation_path!)}`,
-                      '_blank',
-                    )
+                    const downloadUrl = run.minio_object_key
+                      ? `/api/sales/proposal-pipeline/runs/${run.id}/download`
+                      : `/api/presentation/download?path=${encodeURIComponent(run.presentation_path!)}`
+                    window.open(downloadUrl, '_blank')
                   }}
                 >
                   <Download className="h-4 w-4" />

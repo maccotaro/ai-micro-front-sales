@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { MainLayout } from '@/components/layout'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { FileText, Lightbulb, Calculator, Search, Network, Plus } from 'lucide-react'
+import { FileText, Zap, Calculator, Search, Network, Plus } from 'lucide-react'
 
 const features = [
   {
@@ -13,11 +13,11 @@ const features = [
     action: '議事録一覧',
   },
   {
-    title: '提案書生成',
-    description: '解析結果に基づいて最適な提案を自動生成',
-    icon: Lightbulb,
-    href: '/proposals',
-    action: '提案書一覧',
+    title: '提案パイプライン',
+    description: '議事録からLLMチェーンで構造化提案書を自動生成',
+    icon: Zap,
+    href: '/proposal-pipeline',
+    action: '提案パイプライン',
   },
   {
     title: 'シミュレーション',

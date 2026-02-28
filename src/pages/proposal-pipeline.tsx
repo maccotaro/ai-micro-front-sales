@@ -1,4 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { useRouter } from 'next/router'
+import Link from 'next/link'
 import useSWR from 'swr'
 import { MainLayout } from '@/components/layout/main-layout'
 import { Button } from '@/components/ui/button'
@@ -6,20 +8,18 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useToast } from '@/hooks/use-toast'
 import { useAuth } from '@/hooks/use-auth'
 import { fetcher } from '@/lib/api'
+import { usePipelineRun } from '@/hooks/use-pipeline-run'
 import { StageProgress } from '@/components/pipeline/StageProgress'
 import { SectionOutput } from '@/components/pipeline/SectionOutput'
 import { RunHistory } from '@/components/pipeline/RunHistory'
-import { MeetingMinute, PipelineStageInfo, PipelineSSEEvent } from '@/types'
-import { Play, Loader2, FileText, Zap, Presentation } from 'lucide-react'
+import { AnalysisSummary } from '@/components/pipeline/AnalysisSummary'
+import { MeetingMinute, PaginatedResponse, PipelineRun, PipelineSSEEvent } from '@/types'
+import { Play, Loader2, FileText, Zap, Presentation, ArrowLeft } from 'lucide-react'
 import { pipelineToMarkdown } from '@/lib/presentation'
 import { PresentationWizardDialog } from '@/components/presentation/PresentationWizardDialog'
 
-interface PaginatedResponse<T> {
-  items: T[]
-  total: number
-}
-
 export default function ProposalPipelinePage() {
+  const router = useRouter()
   const { toast } = useToast()
   const { isAuthenticated, isLoading: authLoading } = useAuth()
 
@@ -31,19 +31,60 @@ export default function ProposalPipelinePage() {
   )
   const meetings = minutesData?.items ?? []
 
-  // Pipeline state
+  // Whether user navigated from meeting detail
+  const fromMeeting = router.query.from === 'meeting'
+
+  // Auto-select from query param
+  useEffect(() => {
+    const qMinuteId = router.query.minute_id
+    if (!qMinuteId || typeof qMinuteId !== 'string') return
+    if (meetings.length === 0) return
+    if (meetings.some((m) => m.id === qMinuteId)) {
+      setSelectedMinuteId(qMinuteId)
+    }
+  }, [router.query.minute_id, meetings])
+
+  // Auto-load latest completed run when show_result=1
+  const showResult = router.query.show_result === '1'
+  const autoLoadMinuteId = showResult ? (router.query.minute_id as string) : null
+  const { data: autoRunsData } = useSWR<{ runs: PipelineRun[] }>(
+    autoLoadMinuteId
+      ? `/api/sales/proposal-pipeline/runs?minute_id=${autoLoadMinuteId}&page=1&page_size=1`
+      : null,
+    fetcher,
+    { revalidateOnFocus: false }
+  )
+
+  // Pipeline run hook (for loading past results)
+  const {
+    selectedRunId,
+    sections,
+    stages,
+    pipelineRunId,
+    setSections,
+    setStages,
+    setPipelineRunId,
+    handleSelectRun,
+    resetSelection,
+  } = usePipelineRun()
+
+  // Auto-select latest completed run when navigated with show_result=1
+  const autoLoadedRef = useRef(false)
+  useEffect(() => {
+    if (!showResult || autoLoadedRef.current) return
+    const latestRun = autoRunsData?.runs?.[0]
+    if (latestRun && latestRun.status === 'completed') {
+      autoLoadedRef.current = true
+      handleSelectRun(latestRun.id)
+    }
+  }, [autoRunsData, showResult, handleSelectRun])
+
+  // Pipeline execution state
   const [isRunning, setIsRunning] = useState(false)
-  const [stages, setStages] = useState<PipelineStageInfo[]>([])
   const [currentStage, setCurrentStage] = useState<number | null>(null)
-  const [sections, setSections] = useState<
-    { stage: number; name: string; content: string; isStreaming?: boolean }[]
-  >([])
   const [elapsedTime, setElapsedTime] = useState(0)
   const [refreshKey, setRefreshKey] = useState(0)
-  const [selectedRunId, setSelectedRunId] = useState<string | null>(null)
-  const [loadingRun, setLoadingRun] = useState(false)
   const [showPresentation, setShowPresentation] = useState(false)
-  const [pipelineRunId, setPipelineRunId] = useState<string | null>(null)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const abortRef = useRef<AbortController | null>(null)
 
@@ -71,7 +112,6 @@ export default function ProposalPipelinePage() {
         setStages([])
         setSections([])
         break
-
       case 'stage_start':
         if (event.stage != null) {
           setCurrentStage(event.stage)
@@ -93,7 +133,6 @@ export default function ProposalPipelinePage() {
                 status: 'running',
               },
             ])
-            // Add empty section for streaming content
             setSections((prev) => [
               ...prev.filter((s) => s.stage !== event.stage),
               {
@@ -106,7 +145,6 @@ export default function ProposalPipelinePage() {
           }
         }
         break
-
       case 'stage_info':
         if (event.stage != null && event.content) {
           setSections((prev) =>
@@ -118,7 +156,6 @@ export default function ProposalPipelinePage() {
           )
         }
         break
-
       case 'stage_chunk':
         if (event.stage != null && event.content) {
           setSections((prev) =>
@@ -130,7 +167,6 @@ export default function ProposalPipelinePage() {
           )
         }
         break
-
       case 'stage_complete':
         if (event.stage != null) {
           setStages((prev) =>
@@ -147,16 +183,26 @@ export default function ProposalPipelinePage() {
           )
         }
         break
-
       case 'pipeline_complete':
         break
-
       case 'result':
         if (event.run_id) {
           setPipelineRunId(event.run_id)
         }
+        // Replace entire sections array with template sections from result.
+        // This is needed because the output template can have multiple sections
+        // per stage (e.g. 'agenda' + 'proposal' both stage 2).
+        if (event.sections?.length) {
+          setSections(
+            event.sections.map((rs) => ({
+              stage: rs.stage,
+              name: rs.title,
+              content: rs.content,
+              isStreaming: false,
+            }))
+          )
+        }
         break
-
       case 'error':
         if (event.stage != null) {
           setStages((prev) =>
@@ -178,7 +224,7 @@ export default function ProposalPipelinePage() {
         }
         break
     }
-  }, [])
+  }, [setSections, setStages, setPipelineRunId])
 
   const executePipeline = useCallback(async () => {
     if (!selectedMinuteId || isRunning) return
@@ -188,8 +234,7 @@ export default function ProposalPipelinePage() {
     setSections([])
     setCurrentStage(null)
     setElapsedTime(0)
-    setSelectedRunId(null)
-    setPipelineRunId(null)
+    resetSelection()
 
     const controller = new AbortController()
     abortRef.current = controller
@@ -251,64 +296,13 @@ export default function ProposalPipelinePage() {
       abortRef.current = null
       setRefreshKey((k) => k + 1)
     }
-  }, [selectedMinuteId, isRunning, handleSSEEvent, toast])
+  }, [selectedMinuteId, isRunning, handleSSEEvent, toast, setSections, setStages, resetSelection])
 
-  // Load past run result
-  const handleSelectRun = useCallback(async (runId: string) => {
-    if (isRunning || loadingRun) return
-    setLoadingRun(true)
-    setSelectedRunId(runId)
-    setPipelineRunId(runId)
-    try {
-      const res = await fetch(`/api/sales/proposal-pipeline/runs/${runId}`)
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      const data = await res.json()
-      if (data.sections && Array.isArray(data.sections)) {
-        setSections(
-          data.sections.map((s: { stage: number; title: string; content: string }) => ({
-            stage: s.stage,
-            name: s.title,
-            content: s.content || '',
-            isStreaming: false,
-          }))
-        )
-        // Build stages from stage_results (includes stage 0)
-        const STAGE_NAMES: Record<number, string> = {
-          0: 'コンテキスト収集', 1: '課題構造化 + BANT-C',
-          2: '逆算プランニング', 3: 'アクションプラン詳細化',
-          4: '原稿提案生成', 5: 'チェックリスト + まとめ',
-        }
-        const stageResults = data.stage_results as Record<string, { status?: string; duration_ms?: number }> | null
-        const builtStages = Array.from({ length: 6 }, (_, i) => {
-          const sr = stageResults?.[String(i)]
-          return {
-            stage: i,
-            name: STAGE_NAMES[i] || `Stage ${i}`,
-            status: (sr?.status === 'completed' ? 'completed'
-              : sr?.status === 'skipped' ? 'skipped'
-              : sr?.status === 'failed' ? 'error'
-              : 'completed') as 'completed' | 'skipped' | 'error' | 'pending',
-            duration_ms: sr?.duration_ms,
-          }
-        })
-        setStages(builtStages)
-      } else {
-        toast({
-          variant: 'destructive',
-          title: 'データなし',
-          description: 'この実行結果の詳細データは保存されていません',
-        })
-      }
-    } catch {
-      toast({
-        variant: 'destructive',
-        title: 'エラー',
-        description: '実行結果の取得に失敗しました',
-      })
-    } finally {
-      setLoadingRun(false)
-    }
-  }, [isRunning, loadingRun, toast])
+  // Wrap handleSelectRun to block during pipeline execution
+  const onSelectRun = useCallback((runId: string) => {
+    if (isRunning) return
+    handleSelectRun(runId)
+  }, [isRunning, handleSelectRun])
 
   // Clean up on unmount
   useEffect(() => {
@@ -333,14 +327,25 @@ export default function ProposalPipelinePage() {
     <MainLayout title="提案パイプライン - Sales AI">
       <div className="space-y-6">
         {/* Header */}
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Zap className="h-6 w-6" />
-            提案パイプライン
-          </h1>
-          <p className="text-gray-500 mt-1">
-            議事録から6段階のLLMチェーンで構造化提案書を自動生成します
-          </p>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            {fromMeeting && selectedMinuteId && (
+              <Link href={`/meetings/${selectedMinuteId}`}>
+                <Button variant="ghost" size="icon">
+                  <ArrowLeft className="h-4 w-4" />
+                </Button>
+              </Link>
+            )}
+            <div>
+              <h1 className="text-2xl font-bold flex items-center gap-2">
+                <Zap className="h-6 w-6" />
+                提案パイプライン
+              </h1>
+              <p className="text-gray-500 mt-1">
+                議事録から6段階のLLMチェーンで構造化提案書を自動生成します
+              </p>
+            </div>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
@@ -395,6 +400,10 @@ export default function ProposalPipelinePage() {
                   </div>
                 )}
 
+                {selectedMinute && (
+                  <AnalysisSummary parsedJson={selectedMinute.parsed_json} />
+                )}
+
                 <Button
                   className="w-full mt-3"
                   onClick={executePipeline}
@@ -438,7 +447,8 @@ export default function ProposalPipelinePage() {
                 <RunHistory
                   refreshKey={refreshKey}
                   selectedRunId={selectedRunId}
-                  onSelectRun={handleSelectRun}
+                  onSelectRun={onSelectRun}
+                  minuteId={selectedMinuteId || undefined}
                 />
               </CardContent>
             </Card>
@@ -448,7 +458,17 @@ export default function ProposalPipelinePage() {
           <div className="lg:col-span-3">
             <SectionOutput sections={sections} />
             {sections.length > 0 && !isRunning && (
-              <div className="mt-4 flex justify-end">
+              <div className="mt-4 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  {selectedMinuteId && (
+                    <Link href={`/meetings/${selectedMinuteId}`}>
+                      <Button variant="outline" size="sm">
+                        <ArrowLeft className="h-4 w-4 mr-1" />
+                        議事録に戻る
+                      </Button>
+                    </Link>
+                  )}
+                </div>
                 <Button
                   variant="outline"
                   onClick={() => setShowPresentation(true)}
