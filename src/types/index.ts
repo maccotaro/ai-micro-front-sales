@@ -309,7 +309,7 @@ export interface PipelineRun {
 }
 
 export interface PipelineSSEEvent {
-  type: 'pipeline_start' | 'stage_start' | 'stage_info' | 'stage_chunk' | 'stage_complete' | 'pipeline_complete' | 'result' | 'error'
+  type: 'pipeline_start' | 'stage_start' | 'stage_info' | 'stage_chunk' | 'stage_complete' | 'stage_sections' | 'pipeline_complete' | 'result' | 'error'
   stage?: number
   name?: string
   content?: string
@@ -319,6 +319,7 @@ export interface PipelineSSEEvent {
   error?: string
   sections?: Array<{ stage: number; title: string; content: string }>
   run_id?: string
+  pipeline_name?: string
 }
 
 // Stage 2: Shochikubai (松竹梅) types

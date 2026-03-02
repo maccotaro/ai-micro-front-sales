@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ChevronDown, ChevronRight, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -256,6 +256,24 @@ function SectionCard({
 }
 
 export function SectionOutput({ sections }: SectionOutputProps) {
+  // Track the last stage we scrolled to, so we only scroll on new stages
+  const lastScrolledStage = useRef<number | null>(null)
+
+  useEffect(() => {
+    // Find the newest streaming section (highest stage number that is streaming)
+    const streaming = sections.filter((s) => s.isStreaming)
+    if (streaming.length === 0) return
+    const newest = streaming[streaming.length - 1]
+    if (newest.stage === lastScrolledStage.current) return
+    lastScrolledStage.current = newest.stage
+
+    // Scroll to the section element
+    const el = document.getElementById(`pipeline-section-${newest.stage}`)
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }, [sections])
+
   if (sections.length === 0) {
     return (
       <div className="flex items-center justify-center py-12 text-gray-400">
@@ -267,14 +285,15 @@ export function SectionOutput({ sections }: SectionOutputProps) {
   return (
     <div className="space-y-3">
       {sections.map((section, idx) => (
-        <SectionCard
-          key={`${section.stage}-${idx}`}
-          stage={section.stage}
-          name={section.name}
-          content={section.content}
-          isStreaming={section.isStreaming}
-          allSections={sections}
-        />
+        <div key={`${section.stage}-${idx}`} id={`pipeline-section-${section.stage}`}>
+          <SectionCard
+            stage={section.stage}
+            name={section.name}
+            content={section.content}
+            isStreaming={section.isStreaming}
+            allSections={sections}
+          />
+        </div>
       ))}
     </div>
   )

@@ -3,10 +3,10 @@ import Link from 'next/link'
 import useSWR from 'swr'
 import { MainLayout } from '@/components/layout'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
-import { Plus, Search, FileText, Calendar, Building2, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Plus, Search, FileText, ChevronLeft, ChevronRight } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import { fetcher } from '@/lib/api'
 import { MeetingMinute, PaginatedResponse } from '@/types'
@@ -39,22 +39,19 @@ export default function MeetingsPage() {
 
   return (
     <MainLayout title="議事録一覧 - Sales AI">
-      <div className="space-y-6">
+      <div className="space-y-4">
+        {/* Header */}
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">議事録一覧</h1>
-            <p className="mt-1 text-sm text-gray-500">
-              商談議事録を管理し、AIで解析します
-            </p>
-          </div>
+          <h1 className="text-xl font-bold text-gray-900">議事録一覧</h1>
           <Link href="/meetings/new">
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
+            <Button size="sm">
+              <Plus className="mr-1.5 h-4 w-4" />
               新規作成
             </Button>
           </Link>
         </div>
 
+        {/* Search */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
           <Input
@@ -64,7 +61,7 @@ export default function MeetingsPage() {
               setSearchQuery(e.target.value)
               setPage(1)
             }}
-            className="pl-10"
+            className="pl-10 h-9 text-sm"
           />
         </div>
 
@@ -74,23 +71,23 @@ export default function MeetingsPage() {
           </div>
         ) : error ? (
           <Card>
-            <CardContent className="py-12 text-center">
+            <CardContent className="py-8 text-center">
               <p className="text-red-500">データの取得に失敗しました</p>
             </CardContent>
           </Card>
         ) : filteredMeetings.length === 0 ? (
           <Card>
-            <CardContent className="py-12 text-center">
-              <FileText className="mx-auto h-12 w-12 text-gray-400" />
-              <h3 className="mt-4 text-lg font-medium text-gray-900">
+            <CardContent className="py-8 text-center">
+              <FileText className="mx-auto h-10 w-10 text-gray-400" />
+              <h3 className="mt-3 text-base font-medium text-gray-900">
                 議事録がありません
               </h3>
-              <p className="mt-2 text-sm text-gray-500">
+              <p className="mt-1 text-sm text-gray-500">
                 新規作成ボタンから議事録を作成してください
               </p>
               <Link href="/meetings/new">
-                <Button className="mt-4">
-                  <Plus className="mr-2 h-4 w-4" />
+                <Button size="sm" className="mt-3">
+                  <Plus className="mr-1.5 h-4 w-4" />
                   新規作成
                 </Button>
               </Link>
@@ -98,43 +95,50 @@ export default function MeetingsPage() {
           </Card>
         ) : (
           <>
-            <div className="grid gap-4">
-              {filteredMeetings.map((meeting) => (
-                <Link key={meeting.id} href={`/meetings/${meeting.id}`}>
-                  <Card className="hover:shadow-md transition-shadow cursor-pointer">
-                    <CardHeader className="pb-2">
-                      <div className="flex items-start justify-between">
-                        <CardTitle className="text-lg">{meeting.company_name}</CardTitle>
-                        <Badge variant={statusLabels[meeting.status]?.variant}>
-                          {statusLabels[meeting.status]?.label || meeting.status}
-                        </Badge>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="flex items-center space-x-4 text-sm text-gray-500">
-                        <div className="flex items-center">
-                          <Calendar className="mr-1 h-4 w-4" />
+            {/* Table */}
+            <div className="border border-gray-200 rounded-lg overflow-hidden">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-200">
+                    <th className="text-left px-4 py-2.5 font-medium text-gray-600">会社名</th>
+                    <th className="text-left px-4 py-2.5 font-medium text-gray-600 w-24">業種</th>
+                    <th className="text-left px-4 py-2.5 font-medium text-gray-600 w-20">地域</th>
+                    <th className="text-left px-4 py-2.5 font-medium text-gray-600 w-28">商談日</th>
+                    <th className="text-center px-4 py-2.5 font-medium text-gray-600 w-24">ステータス</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredMeetings.map((meeting) => (
+                    <Link key={meeting.id} href={`/meetings/${meeting.id}`} legacyBehavior>
+                      <tr className="border-b border-gray-100 last:border-0 hover:bg-gray-50 cursor-pointer transition-colors">
+                        <td className="px-4 py-2.5 font-medium text-gray-900">
+                          {meeting.company_name}
+                        </td>
+                        <td className="px-4 py-2.5 text-gray-500">
+                          {meeting.industry || '-'}
+                        </td>
+                        <td className="px-4 py-2.5 text-gray-500">
+                          {meeting.area || '-'}
+                        </td>
+                        <td className="px-4 py-2.5 text-gray-500">
                           {meeting.meeting_date ? formatDate(meeting.meeting_date) : '-'}
-                        </div>
-                        {meeting.industry && (
-                          <div className="flex items-center">
-                            <Building2 className="mr-1 h-4 w-4" />
-                            {meeting.industry}
-                          </div>
-                        )}
-                        {meeting.area && (
-                          <span className="text-gray-400">{meeting.area}</span>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </Link>
-              ))}
+                        </td>
+                        <td className="px-4 py-2.5 text-center">
+                          <Badge variant={statusLabels[meeting.status]?.variant}>
+                            {statusLabels[meeting.status]?.label || meeting.status}
+                          </Badge>
+                        </td>
+                      </tr>
+                    </Link>
+                  ))}
+                </tbody>
+              </table>
             </div>
 
+            {/* Pagination */}
             {totalPages > 1 && (
-              <div className="flex items-center justify-between pt-2">
-                <p className="text-sm text-gray-500">
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-gray-500">
                   全 {data?.total ?? 0} 件中 {(page - 1) * PAGE_SIZE + 1}–
                   {Math.min(page * PAGE_SIZE, data?.total ?? 0)} 件
                 </p>
@@ -148,7 +152,7 @@ export default function MeetingsPage() {
                     <ChevronLeft className="h-4 w-4 mr-1" />
                     前へ
                   </Button>
-                  <span className="text-sm text-gray-600">
+                  <span className="text-xs text-gray-600">
                     {page} / {totalPages}
                   </span>
                   <Button

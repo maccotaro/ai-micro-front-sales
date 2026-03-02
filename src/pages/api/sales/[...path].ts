@@ -3,6 +3,11 @@ import { withTokenRefresh } from '@/lib/withTokenRefresh'
 
 const SALES_API_URL = process.env.API_GATEWAY_URL || 'http://localhost:8888'
 
+// SSE uses direct connection to api-sales to avoid gateway buffering.
+// Gateway (APISIX/nginx) buffers proxy responses by default, which breaks
+// real-time SSE streaming. Connecting directly bypasses this issue.
+const SALES_SSE_URL = process.env.SALES_API_URL || SALES_API_URL
+
 // SSEストリーミングが必要なエンドポイント
 const SSE_ENDPOINTS = ['proposal-chat/stream', 'proposal-pipeline/stream']
 
@@ -41,7 +46,8 @@ export default async function handler(
     }
 
     try {
-      const url = `${SALES_API_URL}/sales/${pathString}${queryString ? `?${queryString}` : ''}`
+      // Direct connection to api-sales: use /api/sales/ prefix (not /sales/ gateway prefix)
+      const url = `${SALES_SSE_URL}/api/sales/${pathString}${queryString ? `?${queryString}` : ''}`
 
       const headers: Record<string, string> = {
         Authorization: `Bearer ${accessToken}`,
@@ -58,20 +64,25 @@ export default async function handler(
       })
 
       if (response.ok && response.body) {
-        res.setHeader('Content-Type', 'text/event-stream')
-        res.setHeader('Cache-Control', 'no-cache')
-        res.setHeader('Connection', 'keep-alive')
-        res.setHeader('X-Accel-Buffering', 'no')
+        res.writeHead(200, {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache, no-transform',
+          'Connection': 'keep-alive',
+          'X-Accel-Buffering': 'no',
+        })
 
         const reader = response.body.getReader()
+        const decoder = new TextDecoder()
 
         try {
           while (true) {
             const { done, value } = await reader.read()
             if (done) break
 
-            const chunk = new TextDecoder().decode(value)
-            res.write(chunk)
+            res.write(decoder.decode(value, { stream: true }))
+            if (typeof (res as any).flush === 'function') {
+              ;(res as any).flush()
+            }
           }
         } finally {
           reader.releaseLock()

@@ -14,7 +14,7 @@ import { SectionOutput } from '@/components/pipeline/SectionOutput'
 import { RunHistory } from '@/components/pipeline/RunHistory'
 import { AnalysisSummary } from '@/components/pipeline/AnalysisSummary'
 import { MeetingMinute, PaginatedResponse, PipelineRun, PipelineSSEEvent } from '@/types'
-import { Play, Loader2, FileText, Zap, Presentation, ArrowLeft } from 'lucide-react'
+import { Play, Loader2, FileText, Zap, Presentation, ArrowLeft, AlertCircle } from 'lucide-react'
 import { pipelineToMarkdown } from '@/lib/presentation'
 import { PresentationWizardDialog } from '@/components/presentation/PresentationWizardDialog'
 
@@ -79,6 +79,22 @@ export default function ProposalPipelinePage() {
     }
   }, [autoRunsData, showResult, handleSelectRun])
 
+  // Pipeline health state
+  const [pipelineEnabled, setPipelineEnabled] = useState<boolean | null>(null)
+  const [pipelineName, setPipelineName] = useState<string>('提案パイプライン')
+
+  // Health check on mount
+  useEffect(() => {
+    if (!isAuthenticated) return
+    fetch('/api/sales/proposal-pipeline/health', { credentials: 'include' })
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((data) => {
+        setPipelineEnabled(data.pipeline_enabled ?? true)
+        if (data.pipeline_name) setPipelineName(data.pipeline_name)
+      })
+      .catch(() => setPipelineEnabled(null))
+  }, [isAuthenticated])
+
   // Pipeline execution state
   const [isRunning, setIsRunning] = useState(false)
   const [currentStage, setCurrentStage] = useState<number | null>(null)
@@ -111,6 +127,9 @@ export default function ProposalPipelinePage() {
       case 'pipeline_start':
         setStages([])
         setSections([])
+        if (event.pipeline_name) {
+          setPipelineName(event.pipeline_name)
+        }
         break
       case 'stage_start':
         if (event.stage != null) {
@@ -183,25 +202,35 @@ export default function ProposalPipelinePage() {
           )
         }
         break
+      case 'stage_sections':
+        if (event.sections?.length && event.stage != null) {
+          setSections((prev) => {
+            const filtered = prev.filter((s) => s.stage !== event.stage)
+            const insertIdx = filtered.findIndex((s) => s.stage > event.stage!)
+            const newSections = event.sections!.map((rs) => ({
+              stage: rs.stage,
+              name: rs.title,
+              content: rs.content,
+              isStreaming: false,
+            }))
+            if (insertIdx === -1) {
+              return [...filtered, ...newSections]
+            }
+            return [
+              ...filtered.slice(0, insertIdx),
+              ...newSections,
+              ...filtered.slice(insertIdx),
+            ]
+          })
+        }
+        break
       case 'pipeline_complete':
         break
       case 'result':
         if (event.run_id) {
           setPipelineRunId(event.run_id)
         }
-        // Replace entire sections array with template sections from result.
-        // This is needed because the output template can have multiple sections
-        // per stage (e.g. 'agenda' + 'proposal' both stage 2).
-        if (event.sections?.length) {
-          setSections(
-            event.sections.map((rs) => ({
-              stage: rs.stage,
-              name: rs.title,
-              content: rs.content,
-              isStreaming: false,
-            }))
-          )
-        }
+        // Sections are already displayed via stage_sections events
         break
       case 'error':
         if (event.stage != null) {
@@ -339,11 +368,17 @@ export default function ProposalPipelinePage() {
             <div>
               <h1 className="text-2xl font-bold flex items-center gap-2">
                 <Zap className="h-6 w-6" />
-                提案パイプライン
+                {pipelineName}
               </h1>
               <p className="text-gray-500 mt-1">
                 議事録から6段階のLLMチェーンで構造化提案書を自動生成します
               </p>
+              {pipelineEnabled === false && (
+                <p className="text-amber-600 text-sm mt-1 flex items-center gap-1">
+                  <AlertCircle className="h-4 w-4" />
+                  パイプラインは現在無効です
+                </p>
+              )}
             </div>
           </div>
         </div>
@@ -407,7 +442,7 @@ export default function ProposalPipelinePage() {
                 <Button
                   className="w-full mt-3"
                   onClick={executePipeline}
-                  disabled={!selectedMinuteId || isRunning}
+                  disabled={!selectedMinuteId || isRunning || pipelineEnabled === false}
                 >
                   {isRunning ? (
                     <>
