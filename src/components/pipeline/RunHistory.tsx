@@ -8,8 +8,9 @@ import { Clock, AlertCircle, CheckCircle2, Loader2, Eye, Download } from 'lucide
 interface RunHistoryProps {
   refreshKey?: number
   selectedRunId?: string | null
-  onSelectRun?: (runId: string) => void
+  onSelectRun?: (runId: string, minuteId?: string) => void
   minuteId?: string
+  meetingNames?: Record<string, string>
 }
 
 interface RunsResponse {
@@ -58,7 +59,7 @@ function formatDuration(ms: number | null): string {
   return `${(ms / 1000).toFixed(1)}s`
 }
 
-export function RunHistory({ refreshKey, selectedRunId, onSelectRun, minuteId }: RunHistoryProps) {
+export function RunHistory({ refreshKey, selectedRunId, onSelectRun, minuteId, meetingNames }: RunHistoryProps) {
   const params = new URLSearchParams({
     page: '1',
     page_size: '10',
@@ -107,9 +108,14 @@ export function RunHistory({ refreshKey, selectedRunId, onSelectRun, minuteId }:
                   ? 'bg-white hover:bg-gray-50 cursor-pointer'
                   : 'bg-white'
             }`}
-            onClick={() => isClickable && onSelectRun(run.id)}
+            onClick={() => isClickable && onSelectRun(run.id, run.minute_id)}
           >
             <div className="space-y-1 flex-1 min-w-0">
+              {meetingNames?.[run.minute_id] && (
+                <p className="text-xs font-medium text-gray-700 truncate">
+                  {meetingNames[run.minute_id]}
+                </p>
+              )}
               <div className="flex items-center gap-2">
                 {statusBadge(run.status)}
                 <span className="text-xs text-gray-400 flex items-center gap-1">

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useRouter } from 'next/router'
 import Link from 'next/link'
 import useSWR from 'swr'
@@ -30,6 +30,10 @@ export default function ProposalPipelinePage() {
     fetcher
   )
   const meetings = minutesData?.items ?? []
+  const meetingNameMap = useMemo(
+    () => Object.fromEntries(meetings.map((m) => [m.id, m.company_name])),
+    [meetings]
+  )
 
   // Whether user navigated from meeting detail
   const fromMeeting = router.query.from === 'meeting'
@@ -327,9 +331,10 @@ export default function ProposalPipelinePage() {
     }
   }, [selectedMinuteId, isRunning, handleSSEEvent, toast, setSections, setStages, resetSelection])
 
-  // Wrap handleSelectRun to block during pipeline execution
-  const onSelectRun = useCallback((runId: string) => {
+  // Wrap handleSelectRun to block during pipeline execution + sync minute dropdown
+  const onSelectRun = useCallback((runId: string, minuteId?: string) => {
     if (isRunning) return
+    if (minuteId) setSelectedMinuteId(minuteId)
     handleSelectRun(runId)
   }, [isRunning, handleSelectRun])
 
@@ -484,6 +489,7 @@ export default function ProposalPipelinePage() {
                   selectedRunId={selectedRunId}
                   onSelectRun={onSelectRun}
                   minuteId={selectedMinuteId || undefined}
+                  meetingNames={meetingNameMap}
                 />
               </CardContent>
             </Card>
