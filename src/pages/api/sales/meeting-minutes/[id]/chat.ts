@@ -1,7 +1,9 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { withTokenRefresh } from '@/lib/withTokenRefresh'
 
-const SALES_API_URL = process.env.API_GATEWAY_URL || 'http://localhost:8888'
+const GATEWAY_URL = process.env.API_GATEWAY_URL || 'http://localhost:8888'
+// SSE uses direct connection to api-sales to avoid gateway buffering
+const SALES_SSE_URL = process.env.SALES_API_URL || GATEWAY_URL
 
 export const config = {
   api: {
@@ -25,7 +27,8 @@ export default async function handler(
     }
 
     try {
-      const url = `${SALES_API_URL}/sales/meeting-minutes/${id}/chat`
+      // Direct connection: use /api/sales/ prefix (not gateway /sales/ prefix)
+      const url = `${SALES_SSE_URL}/api/sales/meeting-minutes/${id}/chat`
 
       const response = await fetch(url, {
         method: 'POST',
@@ -84,7 +87,7 @@ export default async function handler(
   } else if (req.method === 'DELETE') {
     // Clear chat history: use withTokenRefresh
     return withTokenRefresh(req, res, async (token) => {
-      const url = `${SALES_API_URL}/sales/meeting-minutes/${id}/chat`
+      const url = `${GATEWAY_URL}/sales/meeting-minutes/${id}/chat`
 
       return fetch(url, {
         method: 'DELETE',
