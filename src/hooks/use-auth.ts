@@ -51,7 +51,7 @@ export function useAuth() {
     }
   }, [router?.pathname, mutate])
 
-  // Auto-refresh token every 10 minutes
+  // Auto-refresh token every 10 minutes + on tab focus return
   useEffect(() => {
     if (typeof window === 'undefined' || !router?.isReady) return
     if (router?.pathname === '/login') return
@@ -60,8 +60,19 @@ export function useAuth() {
       refreshToken()
     }, TOKEN_REFRESH_INTERVAL_MS)
 
+    // タブがバックグラウンドから復帰した時に即座にリフレッシュ
+    // setIntervalはバックグラウンドタブでブラウザに抑制されるため、
+    // 長時間離れて戻るとトークンが期限切れになっている
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        refreshToken()
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
     return () => {
       clearInterval(refreshInterval)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
   }, [router?.isReady, router?.pathname, refreshToken])
 
