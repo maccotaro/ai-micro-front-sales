@@ -8,6 +8,7 @@ import {
   MessageSquare,
   Zap,
   FlaskConical,
+  BookOpen,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -17,6 +18,7 @@ import { TenantSwitcher } from '@/components/tenant-switcher'
 const mainNavItems = [
   { name: '議事録', href: '/meetings', icon: FileText },
   { name: '提案パイプライン', href: '/proposal-pipeline', icon: Zap },
+  { name: '提案書', href: '/proposal-document', icon: BookOpen },
   { name: '商材チャット', href: '/proposal-chat', icon: MessageSquare },
 ]
 

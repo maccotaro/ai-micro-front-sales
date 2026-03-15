@@ -9,6 +9,11 @@ export const STAGE_NAMES: Record<number, string> = {
   3: 'アクションプラン詳細化',
   4: '原稿提案生成',
   5: 'チェックリスト + まとめ',
+  6: '提案コンテキスト収集',
+  7: '業界・ターゲット分析',
+  8: '訴求戦略立案',
+  9: 'ストーリー構成',
+  10: 'ページ生成',
 }
 
 export interface PipelineSection {
@@ -25,6 +30,7 @@ export function usePipelineRun() {
   const [sections, setSections] = useState<PipelineSection[]>([])
   const [stages, setStages] = useState<PipelineStageInfo[]>([])
   const [pipelineRunId, setPipelineRunId] = useState<string | null>(null)
+  const [documentId, setDocumentId] = useState<string | null>(null)
 
   const handleSelectRun = useCallback(async (runId: string) => {
     if (loadingRun) return
@@ -45,7 +51,11 @@ export function usePipelineRun() {
           }))
         )
         const stageResults = data.stage_results as Record<string, { status?: string; duration_ms?: number }> | null
-        const builtStages = Array.from({ length: 6 }, (_, i) => {
+        if (data.document_id) {
+          setDocumentId(data.document_id)
+        }
+        const stageCount = Math.max(6, ...Object.keys(stageResults || {}).map(Number).filter(n => !isNaN(n))) + 1
+        const builtStages = Array.from({ length: Math.min(stageCount, 11) }, (_, i) => {
           const sr = stageResults?.[String(i)]
           return {
             stage: i,
@@ -79,6 +89,7 @@ export function usePipelineRun() {
   const resetSelection = useCallback(() => {
     setSelectedRunId(null)
     setPipelineRunId(null)
+    setDocumentId(null)
     setSections([])
     setStages([])
   }, [])
@@ -89,10 +100,12 @@ export function usePipelineRun() {
     sections,
     stages,
     pipelineRunId,
+    documentId,
     setSections,
     setStages,
     setPipelineRunId,
     setSelectedRunId,
+    setDocumentId,
     handleSelectRun,
     resetSelection,
   }

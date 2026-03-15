@@ -65,9 +65,11 @@ export default function ProposalPipelinePage() {
     sections,
     stages,
     pipelineRunId,
+    documentId,
     setSections,
     setStages,
     setPipelineRunId,
+    setDocumentId,
     handleSelectRun,
     resetSelection,
   } = usePipelineRun()
@@ -233,6 +235,9 @@ export default function ProposalPipelinePage() {
       case 'result':
         if (event.run_id) {
           setPipelineRunId(event.run_id)
+        }
+        if (event.document_id) {
+          setDocumentId(event.document_id)
         }
         // Sections are already displayed via stage_sections events
         break
@@ -510,6 +515,13 @@ export default function ProposalPipelinePage() {
                     </Link>
                   )}
                 </div>
+                {documentId && (
+                  <Link href={`/proposal-document/${documentId}`}>
+                    <Button variant="default" size="sm">
+                      提案書を開く
+                    </Button>
+                  </Link>
+                )}
                 <Button
                   variant="outline"
                   onClick={() => setShowPresentation(true)}

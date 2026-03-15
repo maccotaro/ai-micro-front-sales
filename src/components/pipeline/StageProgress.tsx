@@ -9,6 +9,11 @@ const STAGE_NAMES: Record<number, string> = {
   3: 'アクションプラン詳細化',
   4: '原稿提案生成',
   5: 'チェックリスト + まとめ',
+  6: '提案コンテキスト収集',
+  7: '業界・ターゲット分析',
+  8: '訴求戦略立案',
+  9: 'ストーリー構成',
+  10: 'ページ生成',
 }
 
 interface StageProgressProps {
@@ -39,8 +44,10 @@ function formatDuration(ms: number): string {
 }
 
 export function StageProgress({ stages, currentStage, elapsedTime, isRunning }: StageProgressProps) {
+  const totalStages = Math.max(stages.length, Object.keys(STAGE_NAMES).length)
   const completedCount = stages.filter((s) => s.status === 'completed' || s.status === 'skipped').length
-  const progressPercent = Math.min((completedCount / 6) * 100, 100)
+  const progressPercent = totalStages > 0 ? Math.min((completedCount / totalStages) * 100, 100) : 0
+  const allDone = completedCount >= totalStages && totalStages > 0
 
   return (
     <div className="space-y-3">
@@ -50,7 +57,7 @@ export function StageProgress({ stages, currentStage, elapsedTime, isRunning }: 
             ? currentStage !== null
               ? `Stage ${currentStage}: ${STAGE_NAMES[currentStage] || ''}`
               : '開始中...'
-            : completedCount === 6
+            : allDone
               ? '完了'
               : '待機中'}
         </span>
@@ -64,7 +71,7 @@ export function StageProgress({ stages, currentStage, elapsedTime, isRunning }: 
         <div
           className={cn(
             'h-2 rounded-full transition-all duration-300',
-            completedCount === 6 ? 'bg-green-500' : 'bg-blue-500'
+            allDone ? 'bg-green-500' : 'bg-blue-500'
           )}
           style={{ width: `${progressPercent}%` }}
         />
@@ -72,7 +79,7 @@ export function StageProgress({ stages, currentStage, elapsedTime, isRunning }: 
 
       {/* Stage list */}
       <div className="space-y-1">
-        {Array.from({ length: 6 }, (_, i) => {
+        {Array.from({ length: totalStages }, (_, i) => {
           const stage = stages.find((s) => s.stage === i)
           const status = stage?.status || 'pending'
           return (
