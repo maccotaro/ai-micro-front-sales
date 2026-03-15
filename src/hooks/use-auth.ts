@@ -37,6 +37,8 @@ export function useAuth() {
       })
       isRefreshingRef.current = false
       if (response.ok) {
+        // Refresh SWR cache to prevent stale user data after token update
+        mutate()
         return true
       }
       if (response.status === 401) {
@@ -47,7 +49,7 @@ export function useAuth() {
       isRefreshingRef.current = false
       return false
     }
-  }, [router?.pathname])
+  }, [router?.pathname, mutate])
 
   // Auto-refresh token every 10 minutes
   useEffect(() => {
@@ -83,18 +85,27 @@ export function useAuth() {
     login,
     logout,
     mutate,
+    refreshToken,
   }
 }
 
 export function useRequireAuth() {
-  const { user, isLoading, isAuthenticated } = useAuth()
+  const auth = useAuth()
+  const { user, isLoading, isAuthenticated } = auth
   const router = useRouter()
+  const redirectingRef = useRef(false)
 
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      router.push('/login')
+    if (!isLoading && !isAuthenticated && !redirectingRef.current) {
+      // Try refresh before redirecting
+      auth.refreshToken().then((success) => {
+        if (!success && !redirectingRef.current) {
+          redirectingRef.current = true
+          router.push('/login')
+        }
+      })
     }
-  }, [isLoading, isAuthenticated, router])
+  }, [isLoading, isAuthenticated, router, auth])
 
   return { user, isLoading }
 }
