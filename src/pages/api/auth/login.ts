@@ -1,4 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
+import { setTokenCookies } from '@/lib/cookies'
 
 const AUTH_SERVER_URL = process.env.API_GATEWAY_URL || 'http://localhost:8888'
 
@@ -30,18 +31,7 @@ export default async function handler(
       return res.status(response.status).json(data)
     }
 
-    // Set httpOnly cookies
-    const cookieOptions = [
-      'HttpOnly',
-      'Path=/',
-      'SameSite=Lax',
-      process.env.NODE_ENV === 'production' ? 'Secure' : '',
-    ].filter(Boolean).join('; ')
-
-    res.setHeader('Set-Cookie', [
-      `access_token=${data.access_token}; ${cookieOptions}; Max-Age=900`,
-      `refresh_token=${data.refresh_token}; ${cookieOptions}; Max-Age=604800`,
-    ])
+    setTokenCookies(res, data.access_token, data.refresh_token)
 
     return res.status(200).json({
       access_token: data.access_token,

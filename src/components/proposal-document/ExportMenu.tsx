@@ -33,7 +33,7 @@ export function ExportMenu({ documentId }: ExportMenuProps) {
       const actualFormat = result.format || format
 
       // Step 2: Download the generated file via fetch (with auth cookies)
-      const downloadRes = await fetch(`/api/sales/proposal-documents/${documentId}/export/download`)
+      const downloadRes = await fetch(`/api/sales/proposal-documents/${documentId}/export/download?format=${format}`)
       if (!downloadRes.ok) throw new Error('ダウンロードに失敗しました')
 
       const blob = await downloadRes.blob()
@@ -82,19 +82,17 @@ export function ExportMenu({ documentId }: ExportMenuProps) {
           </button>
           <button
             onClick={() => handleExport('pdf')}
-            className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 flex items-center gap-2 text-gray-400"
-            title="Chromiumが必要です"
+            className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 flex items-center gap-2"
           >
             <FileText className="h-4 w-4" />
-            PDF（要Chromium）
+            PDF
           </button>
           <button
             onClick={() => handleExport('pptx')}
-            className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 flex items-center gap-2 text-gray-400"
-            title="Chromiumが必要です"
+            className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 flex items-center gap-2"
           >
             <FileText className="h-4 w-4" />
-            PPTX（要Chromium）
+            PPTX
           </button>
         </div>
       )}

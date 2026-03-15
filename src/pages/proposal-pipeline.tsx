@@ -14,9 +14,7 @@ import { SectionOutput } from '@/components/pipeline/SectionOutput'
 import { RunHistory } from '@/components/pipeline/RunHistory'
 import { AnalysisSummary } from '@/components/pipeline/AnalysisSummary'
 import { MeetingMinute, PaginatedResponse, PipelineRun, PipelineSSEEvent } from '@/types'
-import { Play, Loader2, FileText, Zap, Presentation, ArrowLeft, AlertCircle } from 'lucide-react'
-import { pipelineToMarkdown } from '@/lib/presentation'
-import { PresentationWizardDialog } from '@/components/presentation/PresentationWizardDialog'
+import { Play, Loader2, FileText, Zap, ArrowLeft, AlertCircle } from 'lucide-react'
 
 export default function ProposalPipelinePage() {
   const router = useRouter()
@@ -106,7 +104,6 @@ export default function ProposalPipelinePage() {
   const [currentStage, setCurrentStage] = useState<number | null>(null)
   const [elapsedTime, setElapsedTime] = useState(0)
   const [refreshKey, setRefreshKey] = useState(0)
-  const [showPresentation, setShowPresentation] = useState(false)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const abortRef = useRef<AbortController | null>(null)
 
@@ -522,30 +519,12 @@ export default function ProposalPipelinePage() {
                     </Button>
                   </Link>
                 )}
-                <Button
-                  variant="outline"
-                  onClick={() => setShowPresentation(true)}
-                >
-                  <Presentation className="h-4 w-4 mr-2" />
-                  結果からプレゼン作成
-                </Button>
               </div>
             )}
           </div>
         </div>
       </div>
 
-      <PresentationWizardDialog
-        open={showPresentation}
-        onOpenChange={setShowPresentation}
-        initialContent={pipelineToMarkdown(sections)}
-        downloadTitle={
-          selectedMinute
-            ? `提案書_${selectedMinute.company_name}${selectedMinute.meeting_date ? `_${selectedMinute.meeting_date}` : ''}`
-            : undefined
-        }
-        pipelineRunId={pipelineRunId ?? undefined}
-      />
     </MainLayout>
   )
 }

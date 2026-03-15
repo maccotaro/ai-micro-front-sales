@@ -21,11 +21,12 @@ export function useAuth() {
   const isLoading = swrLoading
   const isAuthenticated = !!user
 
-  // Token refresh function
+  // Token refresh function — single gate via isRefreshingRef
   const refreshToken = useCallback(async (): Promise<boolean> => {
     if (typeof window === 'undefined' || router?.pathname === '/login') {
       return false
     }
+    // Prevent concurrent refresh requests (critical: backend rotates refresh tokens)
     if (isRefreshingRef.current) {
       return false
     }
@@ -37,13 +38,13 @@ export function useAuth() {
       })
       isRefreshingRef.current = false
       if (response.ok) {
-        // Refresh SWR cache to prevent stale user data after token update
+        // Refresh SWR cache to reflect new auth state
         mutate()
         return true
       }
-      if (response.status === 401) {
-        window.location.href = '/login'
-      }
+      // Don't redirect immediately on 401 — a concurrent refresh may have
+      // already succeeded and set valid cookies. Let useRequireAuth handle
+      // the redirect after confirming auth is truly lost.
       return false
     } catch {
       isRefreshingRef.current = false
@@ -56,13 +57,16 @@ export function useAuth() {
     if (typeof window === 'undefined' || !router?.isReady) return
     if (router?.pathname === '/login') return
 
+    // Single refresh interval only — do NOT add a second interval.
+    // The backend rotates refresh tokens (single-use), so two concurrent
+    // refreshes cause the second to 401 → logout.
     const refreshInterval = setInterval(() => {
       refreshToken()
     }, TOKEN_REFRESH_INTERVAL_MS)
 
-    // タブがバックグラウンドから復帰した時に即座にリフレッシュ
-    // setIntervalはバックグラウンドタブでブラウザに抑制されるため、
-    // 長時間離れて戻るとトークンが期限切れになっている
+    // Tab visibility change: refresh immediately when returning from background.
+    // Browsers throttle setInterval in background tabs, so the token may have
+    // expired while the tab was hidden.
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
         refreshToken()

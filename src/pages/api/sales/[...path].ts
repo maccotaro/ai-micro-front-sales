@@ -1,15 +1,17 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
-import { withTokenRefresh } from '@/lib/withTokenRefresh'
+import { withTokenRefresh, getValidToken, tryRefreshOnError } from '@/lib/withTokenRefresh'
+import { ACCESS_TOKEN_COOKIE } from '@/lib/cookies'
 
 const SALES_API_URL = process.env.API_GATEWAY_URL || 'http://localhost:8888'
 
 // SSE uses direct connection to api-sales to avoid gateway buffering.
-// Gateway (APISIX/nginx) buffers proxy responses by default, which breaks
-// real-time SSE streaming. Connecting directly bypasses this issue.
 const SALES_SSE_URL = process.env.SALES_API_URL || SALES_API_URL
 
 // SSEストリーミングが必要なエンドポイント
 const SSE_ENDPOINTS = ['proposal-chat/stream', 'proposal-pipeline/stream']
+
+// バイナリダウンロードエンドポイント（JSONパースをスキップ）
+const BINARY_ENDPOINTS = ['export/download']
 
 export const config = {
   api: {
@@ -37,10 +39,57 @@ export default async function handler(
   const queryString = qs.toString()
 
   const isSSE = SSE_ENDPOINTS.some((endpoint) => pathString.includes(endpoint))
+  const isBinary = BINARY_ENDPOINTS.some((endpoint) => pathString.includes(endpoint))
+
+  if (isBinary) {
+    // Binary download: get a valid token (refresh if needed)
+    const accessToken = await getValidToken(req, res)
+    if (!accessToken) {
+      return res.status(401).json({ message: 'Not authenticated' })
+    }
+
+    try {
+      const url = `${SALES_SSE_URL}/api/sales/${pathString}${queryString ? `?${queryString}` : ''}`
+      let response = await fetch(url, {
+        method: req.method,
+        headers: { Authorization: `Bearer ${accessToken}` },
+      })
+
+      // Retry once on 401/403
+      if (response.status === 401 || response.status === 403) {
+        const newToken = await tryRefreshOnError(req, res, response.status)
+        if (newToken) {
+          response = await fetch(url, {
+            method: req.method,
+            headers: { Authorization: `Bearer ${newToken}` },
+          })
+        }
+      }
+
+      if (!response.ok) {
+        return res.status(response.status).json({ detail: response.statusText })
+      }
+
+      const contentType = response.headers.get('content-type') || 'application/octet-stream'
+      const contentDisposition = response.headers.get('content-disposition') || ''
+
+      res.setHeader('Content-Type', contentType)
+      if (contentDisposition) {
+        res.setHeader('Content-Disposition', contentDisposition)
+      }
+
+      const buffer = await response.arrayBuffer()
+      res.status(200).send(Buffer.from(buffer))
+      return
+    } catch (error) {
+      console.error('Binary proxy error:', error)
+      return res.status(500).json({ message: 'Download failed' })
+    }
+  }
 
   if (isSSE) {
-    // SSE streaming: handle auth manually, skip withTokenRefresh
-    const accessToken = req.cookies.access_token
+    // SSE streaming: get a valid token (refresh if needed)
+    const accessToken = await getValidToken(req, res)
     if (!accessToken) {
       return res.status(401).json({ message: 'Not authenticated' })
     }

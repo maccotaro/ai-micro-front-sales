@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
-import { withTokenRefresh } from '@/lib/withTokenRefresh'
+import { withTokenRefresh, getValidToken } from '@/lib/withTokenRefresh'
 
 const GATEWAY_URL = process.env.API_GATEWAY_URL || 'http://localhost:8888'
 // SSE uses direct connection to api-sales to avoid gateway buffering
@@ -19,8 +19,8 @@ export default async function handler(
   const { id } = req.query
 
   if (req.method === 'POST') {
-    // Streaming chat request: handle auth manually, skip withTokenRefresh
-    const accessToken = req.cookies.access_token
+    // Streaming chat request: get valid token (refresh if needed)
+    const accessToken = await getValidToken(req, res)
 
     if (!accessToken) {
       return res.status(401).json({ message: 'Not authenticated' })

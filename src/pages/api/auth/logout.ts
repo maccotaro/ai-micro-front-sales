@@ -1,4 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
+import { ACCESS_TOKEN_COOKIE, clearTokenCookies } from '@/lib/cookies'
 
 const AUTH_SERVER_URL = process.env.API_GATEWAY_URL || 'http://localhost:8888'
 
@@ -11,25 +12,18 @@ export default async function handler(
   }
 
   try {
-    const accessToken = req.cookies.access_token
+    const accessToken = req.cookies[ACCESS_TOKEN_COOKIE]
 
     if (accessToken) {
-      // Call auth service to invalidate token (best-effort)
       await fetch(`${AUTH_SERVER_URL}/auth/logout`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${accessToken}`,
         },
-      }).catch(() => {
-        // Ignore errors from auth service
-      })
+      }).catch(() => {})
     }
 
-    // Clear cookies
-    res.setHeader('Set-Cookie', [
-      'access_token=; Path=/; HttpOnly; Max-Age=0',
-      'refresh_token=; Path=/; HttpOnly; Max-Age=0',
-    ])
+    clearTokenCookies(res)
 
     return res.status(200).json({ message: 'Logged out successfully' })
   } catch (error) {

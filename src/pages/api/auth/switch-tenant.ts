@@ -1,4 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
+import { ACCESS_TOKEN_COOKIE, setTokenCookies } from '@/lib/cookies'
 
 const API_GATEWAY_URL = process.env.API_GATEWAY_URL || 'http://localhost:8888'
 
@@ -11,7 +12,7 @@ export default async function handler(
   }
 
   try {
-    const accessToken = req.cookies.access_token
+    const accessToken = req.cookies[ACCESS_TOKEN_COOKIE]
 
     if (!accessToken) {
       return res.status(401).json({ error: 'No access token' })
@@ -46,13 +47,7 @@ export default async function handler(
       return res.status(500).json({ error: 'Invalid response from auth service' })
     }
 
-    // Update httpOnly cookies with new tokens
-    const isProduction = process.env.NODE_ENV === 'production'
-    const setCookieHeaders = [
-      `access_token=${data.access_token}; Path=/; HttpOnly; SameSite=Lax${isProduction ? '; Secure' : ''}; Max-Age=${15 * 60}`,
-      `refresh_token=${data.refresh_token}; Path=/; HttpOnly; SameSite=Lax${isProduction ? '; Secure' : ''}; Max-Age=${60 * 60 * 24 * 30}`,
-    ]
-    res.setHeader('Set-Cookie', setCookieHeaders)
+    setTokenCookies(res, data.access_token, data.refresh_token)
 
     res.status(200).json({
       tenant_id: data.tenant_id,

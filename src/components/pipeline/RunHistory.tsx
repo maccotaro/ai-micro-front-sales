@@ -133,16 +133,13 @@ export function RunHistory({ refreshKey, selectedRunId, onSelectRun, minuteId, m
               )}
             </div>
             <div className="flex items-center gap-1 flex-shrink-0 ml-2">
-              {(run.minio_object_key || run.presentation_path) && (
+              {run.minio_object_key && (
                 <button
-                  title="プレゼンをダウンロード"
+                  title="ダウンロード"
                   className="p-1 rounded hover:bg-gray-200 text-gray-400 hover:text-blue-600 transition-colors"
                   onClick={(e) => {
                     e.stopPropagation()
-                    const downloadUrl = run.minio_object_key
-                      ? `/api/sales/proposal-pipeline/runs/${run.id}/download`
-                      : `/api/presentation/download?path=${encodeURIComponent(run.presentation_path!)}`
-                    window.open(downloadUrl, '_blank')
+                    window.open(`/api/sales/proposal-pipeline/runs/${run.id}/download`, '_blank')
                   }}
                 >
                   <Download className="h-4 w-4" />

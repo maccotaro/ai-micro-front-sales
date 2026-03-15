@@ -1,4 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
+import { REFRESH_TOKEN_COOKIE, setTokenCookies } from '@/lib/cookies'
 
 const AUTH_SERVER_URL = process.env.API_GATEWAY_URL || 'http://localhost:8888'
 
@@ -11,7 +12,7 @@ export default async function handler(
   }
 
   try {
-    const refreshToken = req.cookies.refresh_token
+    const refreshToken = req.cookies[REFRESH_TOKEN_COOKIE]
 
     if (!refreshToken) {
       return res.status(401).json({ message: 'No refresh token' })
@@ -31,26 +32,13 @@ export default async function handler(
       if (response.status === 429) {
         return res.status(429).json({ message: 'リクエストが多すぎます。しばらくしてから再度お試しください。' })
       }
-      // Clear invalid cookies
-      res.setHeader('Set-Cookie', [
-        'access_token=; Path=/; HttpOnly; Max-Age=0',
-        'refresh_token=; Path=/; HttpOnly; Max-Age=0',
-      ])
+      // Do NOT clear cookies here — a concurrent refresh may have already
+      // rotated the token. Clearing would destroy the valid new token.
+      // The client-side useAuth handles redirect to /login if needed.
       return res.status(401).json({ message: 'Token refresh failed' })
     }
 
-    // Update cookies with new tokens
-    const cookieOptions = [
-      'HttpOnly',
-      'Path=/',
-      'SameSite=Lax',
-      process.env.NODE_ENV === 'production' ? 'Secure' : '',
-    ].filter(Boolean).join('; ')
-
-    res.setHeader('Set-Cookie', [
-      `access_token=${data.access_token}; ${cookieOptions}; Max-Age=900`,
-      `refresh_token=${data.refresh_token}; ${cookieOptions}; Max-Age=604800`,
-    ])
+    setTokenCookies(res, data.access_token, data.refresh_token)
 
     return res.status(200).json(data)
   } catch (error) {

@@ -73,7 +73,7 @@ export async function getCurrentUser(): Promise<User | null> {
 
 export function isAuthenticated(): boolean {
   if (typeof window === 'undefined') return false
-  return document.cookie.includes('access_token')
+  return document.cookie.includes('sales_access_token')
 }
 
 // --- Tenant utilities ---
@@ -119,20 +119,11 @@ const API_GATEWAY_URL = process.env.API_GATEWAY_URL || 'http://localhost:8888'
 export function getAccessTokenFromRequest(
   cookies: Partial<{ [key: string]: string }>
 ): string | undefined {
-  return cookies.access_token
+  return cookies.sales_access_token
 }
 
 export function buildAuthHeader(accessToken: string): Record<string, string> {
   return { Authorization: `Bearer ${accessToken}` }
-}
-
-export function buildCookieOptions(): string {
-  return [
-    'HttpOnly',
-    'Path=/',
-    'SameSite=Lax',
-    process.env.NODE_ENV === 'production' ? 'Secure' : '',
-  ].filter(Boolean).join('; ')
 }
 
 export function getApiGatewayUrl(): string {

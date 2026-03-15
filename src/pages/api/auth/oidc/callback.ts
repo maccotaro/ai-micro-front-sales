@@ -36,18 +36,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.redirect(`/login?error=${encodeURIComponent(errorMsg)}`)
     }
 
-    // Set httpOnly cookies (same pattern as login.ts)
-    const cookieOptions = [
-      'HttpOnly',
-      'Path=/',
-      'SameSite=Lax',
-      process.env.NODE_ENV === 'production' ? 'Secure' : '',
-    ].filter(Boolean).join('; ')
-
-    res.setHeader('Set-Cookie', [
-      `access_token=${data.access_token}; ${cookieOptions}; Max-Age=900`,
-      `refresh_token=${data.refresh_token}; ${cookieOptions}; Max-Age=604800`,
-    ])
+    // Set httpOnly cookies
+    const { setTokenCookies } = await import('@/lib/cookies')
+    setTokenCookies(res, data.access_token, data.refresh_token)
 
     // Redirect to dashboard
     return res.redirect('/dashboard')

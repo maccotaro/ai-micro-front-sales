@@ -6,30 +6,21 @@
  * 1. Calls the token refresh endpoint
  * 2. Retries the original request with new tokens
  * 3. Returns the result or error
- *
- * Usage in API routes:
- * ```typescript
- * import { withTokenRefresh } from '@/lib/withTokenRefresh';
- *
- * export default async function handler(req: NextApiRequest, res: NextApiResponse) {
- *   return withTokenRefresh(req, res, async (token) => {
- *     const response = await fetch(`${SALES_API_URL}/api/endpoint`, {
- *       headers: { 'Authorization': `Bearer ${token}` }
- *     });
- *     return response;
- *   });
- * }
- * ```
  */
 
 import type { NextApiRequest, NextApiResponse } from 'next';
+import {
+  ACCESS_TOKEN_COOKIE,
+  REFRESH_TOKEN_COOKIE,
+  setTokenCookies,
+} from './cookies';
 
 /**
  * Refresh tokens by calling the backend auth service directly
  */
 async function refreshTokens(req: NextApiRequest, res: NextApiResponse): Promise<string | null> {
   try {
-    const refreshToken = req.cookies.refresh_token;
+    const refreshToken = req.cookies[REFRESH_TOKEN_COOKIE];
 
     if (!refreshToken) {
       console.error('No refresh token found in cookies');
@@ -61,16 +52,11 @@ async function refreshTokens(req: NextApiRequest, res: NextApiResponse): Promise
     }
 
     // Update cookies with new tokens
-    const setCookieHeaders = [
-      `access_token=${data.access_token}; Path=/; HttpOnly; SameSite=Lax${process.env.NODE_ENV === 'production' ? '; Secure' : ''}; Max-Age=${15 * 60}`,
-      `refresh_token=${data.refresh_token}; Path=/; HttpOnly; SameSite=Lax${process.env.NODE_ENV === 'production' ? '; Secure' : ''}; Max-Age=${60 * 60 * 24 * 30}`,
-    ];
-
-    res.setHeader('Set-Cookie', setCookieHeaders);
+    setTokenCookies(res, data.access_token, data.refresh_token);
 
     // Update the request cookies for subsequent operations
-    req.cookies.access_token = data.access_token;
-    req.cookies.refresh_token = data.refresh_token;
+    req.cookies[ACCESS_TOKEN_COOKIE] = data.access_token;
+    req.cookies[REFRESH_TOKEN_COOKIE] = data.refresh_token;
 
     console.log('Token refresh successful');
     return data.access_token;
@@ -82,18 +68,13 @@ async function refreshTokens(req: NextApiRequest, res: NextApiResponse): Promise
 
 /**
  * Execute an API call with automatic token refresh on 401/403 errors
- *
- * @param req - Next.js API request
- * @param res - Next.js API response
- * @param apiCall - Async function that makes the API call, receives token as parameter
- * @returns The API response
  */
 export async function withTokenRefresh(
   req: NextApiRequest,
   res: NextApiResponse,
   apiCall: (token: string) => Promise<Response>
 ): Promise<void> {
-  const token = req.cookies.access_token;
+  const token = req.cookies[ACCESS_TOKEN_COOKIE];
 
   if (!token) {
     res.status(401).json({ error: 'Not authenticated' });
@@ -141,4 +122,35 @@ export async function withTokenRefresh(
     console.error('Error in withTokenRefresh:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
+}
+
+/**
+ * Get the current access token from cookies, refreshing if expired.
+ * Used by SSE/binary endpoints that need a valid token but can't
+ * use the full withTokenRefresh wrapper.
+ */
+export async function getValidToken(
+  req: NextApiRequest,
+  res: NextApiResponse
+): Promise<string | null> {
+  const token = req.cookies[ACCESS_TOKEN_COOKIE];
+  if (!token) {
+    return refreshTokens(req, res);
+  }
+  return token;
+}
+
+/**
+ * Attempt to refresh the token if a backend response indicates expiry.
+ * Returns a new token or null.
+ */
+export async function tryRefreshOnError(
+  req: NextApiRequest,
+  res: NextApiResponse,
+  backendStatus: number
+): Promise<string | null> {
+  if (backendStatus === 401 || backendStatus === 403) {
+    return refreshTokens(req, res);
+  }
+  return null;
 }

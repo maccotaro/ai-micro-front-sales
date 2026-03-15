@@ -303,8 +303,6 @@ export interface PipelineRun {
   created_at: string
   error_stage: number | null
   error_message: string | null
-  presentation_path: string | null
-  presentation_format: string | null
   minio_object_key: string | null
 }
 
