@@ -317,6 +317,7 @@ export interface PipelineSSEEvent {
   error?: string
   sections?: Array<{ stage: number; title: string; content: string }>
   run_id?: string
+  document_id?: string
   pipeline_name?: string
 }
 

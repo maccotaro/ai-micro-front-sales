@@ -6,6 +6,7 @@ import {
   Search,
   LogOut,
   MessageSquare,
+  MessageCircle,
   Zap,
   FlaskConical,
   BookOpen,
@@ -20,6 +21,7 @@ const mainNavItems = [
   { name: '提案パイプライン', href: '/proposal-pipeline', icon: Zap },
   { name: '提案書', href: '/proposal-document', icon: BookOpen },
   { name: '商材チャット', href: '/proposal-chat', icon: MessageSquare },
+  { name: 'KBチャット', href: '/chat', icon: MessageCircle },
 ]
 
 const betaNavItems = [
@@ -111,13 +113,13 @@ export function Sidebar() {
               <div className="mb-3">
                 <TenantSwitcher
                   tenants={user.tenants}
-                  currentTenantId={user.current_tenant_id || user.current_tenant?.tenant_id || user.tenant_id}
+                  currentTenantId={(user.current_tenant_id as string) || user.current_tenant?.tenant_id || (user.tenant_id as string)}
                 />
               </div>
             )}
             <div className="mb-3">
               <p className="text-sm font-medium text-white truncate">
-                {user.name || user.email}
+                {(user.name as string) || user.email}
               </p>
               <p className="text-xs text-gray-400 truncate">{user.email}</p>
             </div>

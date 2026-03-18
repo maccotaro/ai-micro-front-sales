@@ -7,7 +7,13 @@ WORKDIR /app
 
 # Install dependencies based on the preferred package manager
 COPY package.json package-lock.json* ./
+ARG NPM_TOKEN
+RUN if [ -n "$NPM_TOKEN" ]; then \
+      echo "//npm.pkg.github.com/:_authToken=${NPM_TOKEN}" >> .npmrc && \
+      echo "@maccotaro:registry=https://npm.pkg.github.com" >> .npmrc; \
+    fi
 RUN npm ci --legacy-peer-deps
+RUN rm -f .npmrc
 
 # Rebuild the source code only when needed
 FROM base AS builder

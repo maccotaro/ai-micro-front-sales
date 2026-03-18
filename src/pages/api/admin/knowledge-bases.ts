@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
-import { withTokenRefresh } from '@/lib/withTokenRefresh'
+import '@/lib/auth-init'
+import { withTokenRefresh } from '@maccotaro/ai-micro-lib-frontend/auth'
 
 const ADMIN_API_URL = process.env.API_GATEWAY_URL || 'http://localhost:8888'
 

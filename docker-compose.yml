@@ -8,13 +8,25 @@ services:
     volumes:
       - .:/app
       - /app/node_modules
+      - ../ai-micro-lib-frontend/dist:/app/node_modules/@maccotaro/ai-micro-lib-frontend/dist
+      - ../ai-micro-lib-frontend/package.json:/app/node_modules/@maccotaro/ai-micro-lib-frontend/package.json
     env_file:
       - .env
     environment:
       - NODE_ENV=${NODE_ENV:-development}
       - API_GATEWAY_URL=${API_GATEWAY_URL:-http://host.docker.internal:8888}
       - SALES_API_URL=${SALES_API_URL:-http://host.docker.internal:8005}
-    command: sh -c "npm install && npm run dev"
+      - NPM_TOKEN=${NPM_TOKEN:-}
+    command: >
+      sh -c "
+        if [ -n \"$$NPM_TOKEN\" ]; then
+          echo '//npm.pkg.github.com/:_authToken='$$NPM_TOKEN > .npmrc
+          echo '@maccotaro:registry=https://npm.pkg.github.com' >> .npmrc
+        fi
+        npm install --legacy-peer-deps
+        rm -f .npmrc
+        npm run dev
+      "
     restart: unless-stopped
     extra_hosts:
       - "host.docker.internal:host-gateway"

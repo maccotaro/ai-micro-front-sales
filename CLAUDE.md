@@ -240,6 +240,33 @@ JWT_SECRET=your-jwt-secret-key-change-in-production
 - **ai-micro-api-admin**: 管理API（マスタデータ）
 - **ai-micro-neo4j**: グラフデータベース
 
+## Shared Library Integration (@maccotaro/ai-micro-lib-frontend)
+
+### Auth
+
+Authentication uses the shared library with `cookiePrefix: 'sales'`:
+
+```ts
+// lib/auth-init.ts
+import { initAuth } from '@maccotaro/ai-micro-lib-frontend/auth';
+initAuth({ cookiePrefix: 'sales', oidcRedirectPath: '/dashboard' });
+```
+
+BFF auth handlers (login, logout, refresh, me, switch-tenant, oidc-callback) are re-exported from the shared library in `pages/api/auth/*.ts`.
+
+### Chat
+
+The chat page uses the `ChatPage` component from the shared library. Only 2 files are needed for full chat functionality:
+
+1. **`pages/chat.tsx`** - Renders `<ChatPage>` from `@maccotaro/ai-micro-lib-frontend/chat`
+2. **`pages/api/chat/[...path].ts`** - Catchall BFF handler:
+   ```ts
+   import '@/lib/auth-init';
+   export { chatCatchallHandler as default, chatCatchallConfig as config } from '@maccotaro/ai-micro-lib-frontend/chat/handlers';
+   ```
+
+The catchall handler proxies all chat-related API calls (stream, sessions, messages, KB list, document download, etc.) to the admin backend via the API Gateway.
+
 ---
 
 **作成日**: 2025-12-18

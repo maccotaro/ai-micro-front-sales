@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
-import { withTokenRefresh, getValidToken, tryRefreshOnError } from '@/lib/withTokenRefresh'
-import { ACCESS_TOKEN_COOKIE } from '@/lib/cookies'
+import '@/lib/auth-init'
+import { withTokenRefresh, getValidToken, tryRefreshOnError } from '@maccotaro/ai-micro-lib-frontend/auth'
 
 const SALES_API_URL = process.env.API_GATEWAY_URL || 'http://localhost:8888'
 
