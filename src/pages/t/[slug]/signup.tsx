@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { GetServerSideProps } from 'next'
 import Head from 'next/head'
+import Script from 'next/script'
 import { useRouter } from 'next/router'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -12,6 +13,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useToast } from '@/hooks/use-toast'
 
 const API_GATEWAY_URL = process.env.API_GATEWAY_URL || 'http://localhost:8888'
+const RECAPTCHA_SITE_KEY = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || ''
 
 interface TenantInfo {
   tenant_id: string
@@ -37,12 +39,26 @@ const signupSchema = z.object({
     .min(8, 'パスワードは8文字以上で入力してください'),
   confirmPassword: z.string(),
   name: z.string().min(1, '名前を入力してください'),
+  termsAgreed: z.literal(true, {
+    errorMap: () => ({ message: '利用規約に同意してください' }),
+  }),
 }).refine((data) => data.password === data.confirmPassword, {
   message: 'パスワードが一致しません',
   path: ['confirmPassword'],
 })
 
 type SignupFormData = z.infer<typeof signupSchema>
+
+async function getCaptchaToken(): Promise<string> {
+  if (!RECAPTCHA_SITE_KEY) return ''
+  try {
+    const grecaptcha = (window as unknown as { grecaptcha: { execute: (key: string, opts: { action: string }) => Promise<string> } }).grecaptcha
+    if (!grecaptcha) return ''
+    return await grecaptcha.execute(RECAPTCHA_SITE_KEY, { action: 'signup' })
+  } catch {
+    return ''
+  }
+}
 
 function MicrosoftIcon() {
   return (
@@ -145,6 +161,9 @@ export default function TenantSignupPage({ tenant }: SignupPageProps) {
     formState: { errors },
   } = useForm<SignupFormData>({
     resolver: zodResolver(signupSchema),
+    defaultValues: {
+      termsAgreed: undefined,
+    },
   })
 
   const handleOIDCSignup = (providerId: string) => {
@@ -152,9 +171,11 @@ export default function TenantSignupPage({ tenant }: SignupPageProps) {
     window.location.href = `/api/auth/oidc/authorize?provider_id=${providerId}&redirect_uri=${encodeURIComponent(callbackUrl)}&signup_tenant_id=${tenant.tenant_id}`
   }
 
-  const onSubmit = async (data: SignupFormData) => {
+  const onSubmit = useCallback(async (data: SignupFormData) => {
     setIsLoading(true)
     try {
+      const captchaToken = await getCaptchaToken()
+
       const response = await fetch('/api/auth/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -162,35 +183,43 @@ export default function TenantSignupPage({ tenant }: SignupPageProps) {
           email: data.email,
           password: data.password,
           tenant_id: tenant.tenant_id,
+          terms_agreed: true,
+          captcha_token: captchaToken,
         }),
       })
 
-      if (!response.ok) {
+      if (response.ok) {
+        router.push(`/verify-email-pending?email=${encodeURIComponent(data.email)}`)
+      } else {
         const error = await response.json().catch(() => ({}))
-        throw new Error(error.message || '登録に失敗しました')
+        toast({
+          variant: 'destructive',
+          title: '登録エラー',
+          description: error.message || error.detail || '登録に失敗しました',
+        })
       }
-
-      toast({
-        title: '登録完了',
-        description: `${tenant.name} への登録が完了しました。ログインしてください。`,
-      })
-      router.push('/login')
-    } catch (error) {
+    } catch {
       toast({
         variant: 'destructive',
-        title: '登録エラー',
-        description: error instanceof Error ? error.message : '登録に失敗しました',
+        title: 'エラー',
+        description: '登録中にエラーが発生しました',
       })
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [router, toast, tenant.tenant_id])
 
   return (
     <>
       <Head>
         <title>{tenant.name} - ユーザー登録 - Sales AI</title>
       </Head>
+      {RECAPTCHA_SITE_KEY && (
+        <Script
+          src={`https://www.google.com/recaptcha/api.js?render=${RECAPTCHA_SITE_KEY}`}
+          strategy="afterInteractive"
+        />
+      )}
 
       <div className="flex min-h-screen items-center justify-center bg-gray-100">
         <Card className="w-full max-w-md">
@@ -298,6 +327,29 @@ export default function TenantSignupPage({ tenant }: SignupPageProps) {
                 </p>
               </div>
 
+              <div className="flex items-start space-x-2">
+                <input
+                  id="termsAgreed"
+                  type="checkbox"
+                  className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  {...register('termsAgreed')}
+                  disabled={isLoading}
+                />
+                <Label htmlFor="termsAgreed" className="text-sm leading-5">
+                  <a href="/terms" className="text-blue-600 hover:underline" target="_blank" rel="noopener noreferrer">
+                    利用規約
+                  </a>
+                  {' '}および{' '}
+                  <a href="/privacy" className="text-blue-600 hover:underline" target="_blank" rel="noopener noreferrer">
+                    プライバシーポリシー
+                  </a>
+                  {' '}に同意します
+                </Label>
+              </div>
+              {errors.termsAgreed && (
+                <p className="text-sm text-red-500">{errors.termsAgreed.message}</p>
+              )}
+
               <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading ? '登録中...' : '登録'}
               </Button>
@@ -309,6 +361,17 @@ export default function TenantSignupPage({ tenant }: SignupPageProps) {
                 </a>
               </p>
             </form>
+
+            {RECAPTCHA_SITE_KEY && (
+              <p className="mt-4 text-xs text-gray-400 text-center">
+                このサイトはreCAPTCHAで保護されています。
+                Googleの
+                <a href="https://policies.google.com/privacy" className="underline" target="_blank" rel="noopener noreferrer">プライバシーポリシー</a>
+                と
+                <a href="https://policies.google.com/terms" className="underline" target="_blank" rel="noopener noreferrer">利用規約</a>
+                が適用されます。
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>

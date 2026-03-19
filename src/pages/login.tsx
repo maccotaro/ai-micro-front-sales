@@ -202,6 +202,15 @@ export default function LoginPage() {
                 {isLoading ? 'ログイン中...' : 'ログイン'}
               </Button>
             </form>
+
+            <div className="mt-4 text-center">
+              <span className="text-sm text-gray-600">
+                アカウントをお持ちでない方は{' '}
+                <a href="/signup" className="font-medium text-blue-600 hover:underline">
+                  新規登録
+                </a>
+              </span>
+            </div>
           </CardContent>
         </Card>
       </div>
