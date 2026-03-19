@@ -203,13 +203,18 @@ export default function LoginPage() {
               </Button>
             </form>
 
-            <div className="mt-4 text-center">
-              <span className="text-sm text-gray-600">
+            <div className="mt-4 text-center space-y-2">
+              <p className="text-sm">
+                <a href="/forgot-password" className="font-medium text-blue-600 hover:underline">
+                  パスワードを忘れた方はこちら
+                </a>
+              </p>
+              <p className="text-sm text-gray-600">
                 アカウントをお持ちでない方は{' '}
                 <a href="/signup" className="font-medium text-blue-600 hover:underline">
                   新規登録
                 </a>
-              </span>
+              </p>
             </div>
           </CardContent>
         </Card>
