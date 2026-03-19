@@ -10,6 +10,7 @@ import {
   Zap,
   FlaskConical,
   BookOpen,
+  UserCircle,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -22,6 +23,7 @@ const mainNavItems = [
   { name: '提案書', href: '/proposal-document', icon: BookOpen },
   { name: '商材チャット', href: '/proposal-chat', icon: MessageSquare },
   { name: 'KBチャット', href: '/chat', icon: MessageCircle },
+  { name: 'マイペルソナ', href: '/persona', icon: UserCircle },
 ]
 
 const betaNavItems = [

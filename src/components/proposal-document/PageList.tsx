@@ -12,9 +12,10 @@ interface PageListProps {
   pages: ProposalPage[]
   selectedPageId: string | null
   onSelectPage: (pageId: string) => void
+  changedPages?: number[]
 }
 
-export function PageList({ pages, selectedPageId, onSelectPage }: PageListProps) {
+export function PageList({ pages, selectedPageId, onSelectPage, changedPages = [] }: PageListProps) {
   const sorted = [...pages].sort((a, b) => a.page_number - b.page_number)
 
   return (
@@ -31,7 +32,12 @@ export function PageList({ pages, selectedPageId, onSelectPage }: PageListProps)
             selectedPageId === page.id && 'bg-blue-50 border-r-2 border-blue-500',
           )}
         >
-          <span className="flex-shrink-0 w-6 h-6 rounded bg-gray-200 flex items-center justify-center text-xs font-medium text-gray-600">
+          <span className={cn(
+            'flex-shrink-0 w-6 h-6 rounded flex items-center justify-center text-xs font-medium',
+            changedPages.includes(page.page_number)
+              ? 'bg-green-100 text-green-700 ring-2 ring-green-400'
+              : 'bg-gray-200 text-gray-600',
+          )}>
             {page.page_number}
           </span>
           <div className="min-w-0">
