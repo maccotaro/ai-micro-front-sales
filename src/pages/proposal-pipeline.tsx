@@ -9,12 +9,13 @@ import { useToast } from '@/hooks/use-toast'
 import { useAuth } from '@/hooks/use-auth'
 import { fetcher } from '@/lib/api'
 import { usePipelineRun } from '@/hooks/use-pipeline-run'
+import { usePipelineSSE } from '@/hooks/use-pipeline-sse'
 import { StageProgress } from '@/components/pipeline/StageProgress'
 import { SectionOutput } from '@/components/pipeline/SectionOutput'
 import { RunHistory } from '@/components/pipeline/RunHistory'
 import { AnalysisSummary } from '@/components/pipeline/AnalysisSummary'
-import { MeetingMinute, PaginatedResponse, PipelineRun, PipelineSSEEvent } from '@/types'
-import { Play, Loader2, FileText, Zap, ArrowLeft, AlertCircle } from 'lucide-react'
+import { MeetingMinute, PaginatedResponse, PipelineRun, PipelineSSEEvent as SSEEvent } from '@/types'
+import { Play, Loader2, FileText, Zap, ArrowLeft, AlertCircle, UserCircle } from 'lucide-react'
 
 export default function ProposalPipelinePage() {
   const router = useRouter()
@@ -27,6 +28,14 @@ export default function ProposalPipelinePage() {
     isAuthenticated ? '/api/sales/meeting-minutes?page_size=100' : null,
     fetcher
   )
+
+  // Persona selector
+  const [selectedPersonaId, setSelectedPersonaId] = useState<string>('')
+  const { data: personasData } = useSWR<{ personas: Array<{ id: string; display_name: string; role: string }> }>(
+    isAuthenticated ? '/api/chat/personas?build_status=ready&page_size=50' : null,
+    fetcher
+  )
+  const personas = personasData?.personas ?? (Array.isArray(personasData) ? personasData as any[] : [])
   const meetings = minutesData?.items ?? []
   const meetingNameMap = useMemo(
     () => Object.fromEntries(meetings.map((m) => [m.id, m.company_name])),
@@ -125,141 +134,13 @@ export default function ProposalPipelinePage() {
     }
   }, [isRunning])
 
-  const handleSSEEvent = useCallback((event: PipelineSSEEvent) => {
-    switch (event.type) {
-      case 'pipeline_start':
-        setStages([])
-        setSections([])
-        if (event.pipeline_name) {
-          setPipelineName(event.pipeline_name)
-        }
-        break
-      case 'stage_start':
-        if (event.stage != null) {
-          setCurrentStage(event.stage)
-          if (event.skipped) {
-            setStages((prev) => [
-              ...prev.filter((s) => s.stage !== event.stage),
-              {
-                stage: event.stage!,
-                name: event.name || `Stage ${event.stage}`,
-                status: 'skipped',
-              },
-            ])
-          } else {
-            setStages((prev) => [
-              ...prev.filter((s) => s.stage !== event.stage),
-              {
-                stage: event.stage!,
-                name: event.name || `Stage ${event.stage}`,
-                status: 'running',
-              },
-            ])
-            setSections((prev) => [
-              ...prev.filter((s) => s.stage !== event.stage),
-              {
-                stage: event.stage!,
-                name: event.name || `Stage ${event.stage}`,
-                content: '',
-                isStreaming: true,
-              },
-            ])
-          }
-        }
-        break
-      case 'stage_info':
-        if (event.stage != null && event.content) {
-          setSections((prev) =>
-            prev.map((s) =>
-              s.stage === event.stage
-                ? { ...s, content: s.content + event.content + '\n' }
-                : s
-            )
-          )
-        }
-        break
-      case 'stage_chunk':
-        if (event.stage != null && event.content) {
-          setSections((prev) =>
-            prev.map((s) =>
-              s.stage === event.stage
-                ? { ...s, content: s.content + event.content }
-                : s
-            )
-          )
-        }
-        break
-      case 'stage_complete':
-        if (event.stage != null) {
-          setStages((prev) =>
-            prev.map((s) =>
-              s.stage === event.stage
-                ? { ...s, status: 'completed', duration_ms: event.duration_ms }
-                : s
-            )
-          )
-          setSections((prev) =>
-            prev.map((s) =>
-              s.stage === event.stage ? { ...s, isStreaming: false } : s
-            )
-          )
-        }
-        break
-      case 'stage_sections':
-        if (event.sections?.length && event.stage != null) {
-          setSections((prev) => {
-            const filtered = prev.filter((s) => s.stage !== event.stage)
-            const insertIdx = filtered.findIndex((s) => s.stage > event.stage!)
-            const newSections = event.sections!.map((rs) => ({
-              stage: rs.stage,
-              name: rs.title,
-              content: rs.content,
-              isStreaming: false,
-            }))
-            if (insertIdx === -1) {
-              return [...filtered, ...newSections]
-            }
-            return [
-              ...filtered.slice(0, insertIdx),
-              ...newSections,
-              ...filtered.slice(insertIdx),
-            ]
-          })
-        }
-        break
-      case 'pipeline_complete':
-        break
-      case 'result':
-        if (event.run_id) {
-          setPipelineRunId(event.run_id)
-        }
-        if (event.document_id) {
-          setDocumentId(event.document_id)
-        }
-        // Sections are already displayed via stage_sections events
-        break
-      case 'error':
-        if (event.stage != null) {
-          setStages((prev) =>
-            prev.map((s) =>
-              s.stage === event.stage ? { ...s, status: 'error' } : s
-            )
-          )
-          setSections((prev) =>
-            prev.map((s) =>
-              s.stage === event.stage
-                ? {
-                    ...s,
-                    content: s.content + `\n\nエラー: ${event.error || '不明なエラー'}`,
-                    isStreaming: false,
-                  }
-                : s
-            )
-          )
-        }
-        break
-    }
-  }, [setSections, setStages, setPipelineRunId])
+  const { handleSSEEvent: baseSSEHandler } = usePipelineSSE({
+    setSections, setStages, setPipelineRunId, setDocumentId, setPipelineName,
+  })
+  const handleSSEEvent = useCallback((event: SSEEvent) => {
+    if (event.type === 'stage_start' && event.stage != null) setCurrentStage(event.stage)
+    baseSSEHandler(event)
+  }, [baseSSEHandler])
 
   const executePipeline = useCallback(async () => {
     if (!selectedMinuteId || isRunning) return
@@ -278,7 +159,10 @@ export default function ProposalPipelinePage() {
       const response = await fetch('/api/sales/proposal-pipeline/stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ minute_id: selectedMinuteId }),
+        body: JSON.stringify({
+          minute_id: selectedMinuteId,
+          ...(selectedPersonaId ? { persona_id: selectedPersonaId } : {}),
+        }),
         signal: controller.signal,
       })
 
@@ -304,7 +188,7 @@ export default function ProposalPipelinePage() {
         for (const line of lines) {
           if (line.startsWith('data: ')) {
             try {
-              const data = JSON.parse(line.slice(6)) as PipelineSSEEvent
+              const data = JSON.parse(line.slice(6)) as SSEEvent
               handleSSEEvent(data)
             } catch {
               // Ignore parse errors for incomplete chunks
@@ -331,7 +215,7 @@ export default function ProposalPipelinePage() {
       abortRef.current = null
       setRefreshKey((k) => k + 1)
     }
-  }, [selectedMinuteId, isRunning, handleSSEEvent, toast, setSections, setStages, resetSelection])
+  }, [selectedMinuteId, selectedPersonaId, isRunning, handleSSEEvent, toast, setSections, setStages, resetSelection])
 
   // Wrap handleSelectRun to block during pipeline execution + sync minute dropdown
   const onSelectRun = useCallback((runId: string, minuteId?: string) => {
@@ -444,6 +328,28 @@ export default function ProposalPipelinePage() {
 
                 {selectedMinute && (
                   <AnalysisSummary parsedJson={selectedMinute.parsed_json} />
+                )}
+
+                {personas.length > 0 && (
+                  <div className="mt-3 space-y-1">
+                    <label className="text-xs font-medium text-gray-600 flex items-center gap-1">
+                      <UserCircle className="h-3.5 w-3.5" />
+                      ペルソナ
+                    </label>
+                    <select
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      value={selectedPersonaId}
+                      onChange={(e) => setSelectedPersonaId(e.target.value)}
+                      disabled={isRunning}
+                    >
+                      <option value="">ペルソナなし</option>
+                      {personas.map((p: any) => (
+                        <option key={p.id} value={p.id}>
+                          {p.display_name} ({p.role})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 )}
 
                 <Button
