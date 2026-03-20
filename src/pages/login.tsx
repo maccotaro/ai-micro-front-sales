@@ -12,17 +12,13 @@ import { useToast } from '@/hooks/use-toast'
 import { useAuth } from '@/hooks/use-auth'
 
 const loginSchema = z.object({
-  email: z.string().email('有効なメールアドレスを入力してください'),
-  password: z.string().min(1, 'パスワードを入力してください'),
+  email: z.string().email('\u6709\u52B9\u306A\u30E1\u30FC\u30EB\u30A2\u30C9\u30EC\u30B9\u3092\u5165\u529B\u3057\u3066\u304F\u3060\u3055\u3044'),
+  password: z.string().min(1, '\u30D1\u30B9\u30EF\u30FC\u30C9\u3092\u5165\u529B\u3057\u3066\u304F\u3060\u3055\u3044'),
 })
 
 type LoginFormData = z.infer<typeof loginSchema>
 
-interface OIDCProvider {
-  id: string
-  name: string
-  provider_type: string
-}
+interface OIDCProvider { id: string; name: string; provider_type: string }
 
 function MicrosoftIcon() {
   return (
@@ -58,11 +54,11 @@ function ProviderIcon({ providerType }: { providerType: string }) {
 
 function getProviderLabel(provider: OIDCProvider): string {
   const labels: Record<string, string> = {
-    microsoft: 'Microsoftでログイン',
-    azure_ad: 'Microsoftでログイン',
-    google: 'Googleでログイン',
+    microsoft: 'Microsoft\u3067\u30ED\u30B0\u30A4\u30F3',
+    azure_ad: 'Microsoft\u3067\u30ED\u30B0\u30A4\u30F3',
+    google: 'Google\u3067\u30ED\u30B0\u30A4\u30F3',
   }
-  return labels[provider.provider_type] || `${provider.name}でログイン`
+  return labels[provider.provider_type] || `${provider.name}\u3067\u30ED\u30B0\u30A4\u30F3`
 }
 
 export default function LoginPage() {
@@ -72,28 +68,25 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [providers, setProviders] = useState<OIDCProvider[]>([])
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<LoginFormData>({
+  // MFA state
+  const [mfaRequired, setMfaRequired] = useState(false)
+  const [mfaToken, setMfaToken] = useState('')
+  const [mfaCode, setMfaCode] = useState('')
+  const [useRecoveryCode, setUseRecoveryCode] = useState(false)
+  const [recoveryCode, setRecoveryCode] = useState('')
+  const [mfaError, setMfaError] = useState('')
+
+  const { register, handleSubmit, formState: { errors } } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
   })
 
-  // URLクエリパラメータからエラーを取得
   useEffect(() => {
     if (router.query.error) {
-      toast({
-        variant: 'destructive',
-        title: '認証エラー',
-        description: String(router.query.error),
-      })
+      toast({ variant: 'destructive', title: '\u8A8D\u8A3C\u30A8\u30E9\u30FC', description: String(router.query.error) })
     }
   }, [router.query.error, toast])
 
-  useEffect(() => {
-    fetchProviders()
-  }, [])
+  useEffect(() => { fetchProviders() }, [])
 
   const fetchProviders = async () => {
     try {
@@ -102,24 +95,62 @@ export default function LoginPage() {
         const data = await response.json()
         setProviders(data.providers || [])
       }
-    } catch (error) {
-      console.error('Failed to fetch providers:', error)
-    }
+    } catch {}
   }
 
   const onSubmit = async (data: LoginFormData) => {
     setIsLoading(true)
     try {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: data.email, password: data.password }),
+      })
+      const resData = await response.json()
+
+      if (!response.ok) {
+        throw new Error(resData.message || resData.detail || '\u30ED\u30B0\u30A4\u30F3\u306B\u5931\u6557\u3057\u307E\u3057\u305F')
+      }
+
+      if (resData.mfa_required) {
+        setMfaRequired(true)
+        setMfaToken(resData.mfa_token)
+        return
+      }
+
       await login(data.email, data.password)
     } catch (error) {
       toast({
         variant: 'destructive',
-        title: 'ログインエラー',
-        description: error instanceof Error ? error.message : 'ログインに失敗しました',
+        title: '\u30ED\u30B0\u30A4\u30F3\u30A8\u30E9\u30FC',
+        description: error instanceof Error ? error.message : '\u30ED\u30B0\u30A4\u30F3\u306B\u5931\u6557\u3057\u307E\u3057\u305F',
       })
-    } finally {
-      setIsLoading(false)
-    }
+    } finally { setIsLoading(false) }
+  }
+
+  const handleMfaVerify = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setMfaError(''); setIsLoading(true)
+    try {
+      const endpoint = useRecoveryCode ? '/api/auth/mfa/verify-recovery' : '/api/auth/mfa/verify'
+      const body = useRecoveryCode
+        ? { mfa_token: mfaToken, recovery_code: recoveryCode }
+        : { mfa_token: mfaToken, code: mfaCode }
+
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      const data = await response.json()
+      if (!response.ok) {
+        setMfaError(data.detail || '\u8A8D\u8A3C\u306B\u5931\u6557\u3057\u307E\u3057\u305F')
+        return
+      }
+      window.location.href = '/meetings'
+    } catch {
+      setMfaError('\u8A8D\u8A3C\u306B\u5931\u6557\u3057\u307E\u3057\u305F')
+    } finally { setIsLoading(false) }
   }
 
   const handleOIDCLogin = (providerId: string) => {
@@ -127,92 +158,103 @@ export default function LoginPage() {
     window.location.href = `/api/auth/oidc/authorize?provider_id=${providerId}&redirect_uri=${encodeURIComponent(callbackUrl)}`
   }
 
+  if (mfaRequired) {
+    return (
+      <>
+        <Head><title>{'\u4E8C\u8981\u7D20\u8A8D\u8A3C - Sales AI'}</title></Head>
+        <div className="flex min-h-screen items-center justify-center bg-gray-100">
+          <Card className="w-full max-w-md">
+            <CardHeader className="text-center">
+              <CardTitle className="text-2xl font-bold">
+                {useRecoveryCode ? '\u30EA\u30AB\u30D0\u30EA\u30FC\u30B3\u30FC\u30C9' : '\u4E8C\u8981\u7D20\u8A8D\u8A3C'}
+              </CardTitle>
+              <CardDescription>
+                {useRecoveryCode ? '\u30EA\u30AB\u30D0\u30EA\u30FC\u30B3\u30FC\u30C9\u3092\u5165\u529B\u3057\u3066\u304F\u3060\u3055\u3044' : '\u8A8D\u8A3C\u30A2\u30D7\u30EA\u306E6\u6841\u30B3\u30FC\u30C9\u3092\u5165\u529B\u3057\u3066\u304F\u3060\u3055\u3044'}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {mfaError && <p className="text-sm text-red-500 mb-4">{mfaError}</p>}
+              <form onSubmit={handleMfaVerify} className="space-y-4">
+                {useRecoveryCode ? (
+                  <div className="space-y-2">
+                    <Label htmlFor="recovery-code">{'\u30EA\u30AB\u30D0\u30EA\u30FC\u30B3\u30FC\u30C9'}</Label>
+                    <Input id="recovery-code" type="text" placeholder="xxxx-xxxx" value={recoveryCode} onChange={(e) => setRecoveryCode(e.target.value)} autoFocus autoComplete="off" />
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <Label htmlFor="mfa-code">{'\u8A8D\u8A3C\u30B3\u30FC\u30C9'}</Label>
+                    <Input id="mfa-code" type="text" inputMode="numeric" maxLength={6} placeholder="000000" value={mfaCode} onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, '').slice(0, 6))} autoFocus autoComplete="one-time-code" className="text-center text-2xl tracking-[0.5em] font-mono" />
+                  </div>
+                )}
+                <Button type="submit" className="w-full" disabled={isLoading}>
+                  {isLoading ? '\u691C\u8A3C\u4E2D...' : '\u691C\u8A3C'}
+                </Button>
+              </form>
+              <div className="mt-4 text-center space-y-2">
+                <button type="button" onClick={() => { setUseRecoveryCode(!useRecoveryCode); setMfaError('') }} className="text-sm text-blue-600 hover:underline">
+                  {useRecoveryCode ? '\u8A8D\u8A3C\u30A2\u30D7\u30EA\u3092\u4F7F\u7528' : '\u30EA\u30AB\u30D0\u30EA\u30FC\u30B3\u30FC\u30C9\u3092\u4F7F\u7528'}
+                </button>
+                <br />
+                <button type="button" onClick={() => { setMfaRequired(false); setMfaToken(''); setMfaCode(''); setRecoveryCode(''); setUseRecoveryCode(false); setMfaError('') }} className="text-sm text-gray-500 hover:underline">
+                  {'\u30ED\u30B0\u30A4\u30F3\u306B\u623B\u308B'}
+                </button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </>
+    )
+  }
+
   return (
     <>
-      <Head>
-        <title>ログイン - Sales AI</title>
-      </Head>
-
+      <Head><title>{'\u30ED\u30B0\u30A4\u30F3 - Sales AI'}</title></Head>
       <div className="flex min-h-screen items-center justify-center bg-gray-100">
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
             <CardTitle className="text-2xl font-bold">Sales AI</CardTitle>
-            <CardDescription>営業支援AIサービス</CardDescription>
+            <CardDescription>{'\u55B6\u696D\u652F\u63F4AI\u30B5\u30FC\u30D3\u30B9'}</CardDescription>
           </CardHeader>
           <CardContent>
-            {/* OIDC Provider buttons */}
             {providers.length > 0 && (
               <div className="space-y-3 mb-6">
                 {providers.map((provider) => (
-                  <Button
-                    key={provider.id}
-                    type="button"
-                    variant="outline"
-                    className="w-full"
-                    onClick={() => handleOIDCLogin(provider.id)}
-                    disabled={isLoading}
-                  >
+                  <Button key={provider.id} type="button" variant="outline" className="w-full" onClick={() => handleOIDCLogin(provider.id)} disabled={isLoading}>
                     <ProviderIcon providerType={provider.provider_type} />
                     {getProviderLabel(provider)}
                   </Button>
                 ))}
-
                 <div className="relative my-4">
-                  <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-gray-300" />
-                  </div>
-                  <div className="relative flex justify-center text-xs">
-                    <span className="px-4 bg-white text-gray-500">
-                      または
-                    </span>
-                  </div>
+                  <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-300" /></div>
+                  <div className="relative flex justify-center text-xs"><span className="px-4 bg-white text-gray-500">{'\u307E\u305F\u306F'}</span></div>
                 </div>
               </div>
             )}
-
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="email">メールアドレス</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="example@company.com"
-                  {...register('email')}
-                  disabled={isLoading}
-                />
-                {errors.email && (
-                  <p className="text-sm text-red-500">{errors.email.message}</p>
-                )}
+                <Label htmlFor="email">{'\u30E1\u30FC\u30EB\u30A2\u30C9\u30EC\u30B9'}</Label>
+                <Input id="email" type="email" placeholder="example@company.com" {...register('email')} disabled={isLoading} />
+                {errors.email && <p className="text-sm text-red-500">{errors.email.message}</p>}
               </div>
-
               <div className="space-y-2">
-                <Label htmlFor="password">パスワード</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  {...register('password')}
-                  disabled={isLoading}
-                />
-                {errors.password && (
-                  <p className="text-sm text-red-500">{errors.password.message}</p>
-                )}
+                <Label htmlFor="password">{'\u30D1\u30B9\u30EF\u30FC\u30C9'}</Label>
+                <Input id="password" type="password" {...register('password')} disabled={isLoading} />
+                {errors.password && <p className="text-sm text-red-500">{errors.password.message}</p>}
               </div>
-
               <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? 'ログイン中...' : 'ログイン'}
+                {isLoading ? '\u30ED\u30B0\u30A4\u30F3\u4E2D...' : '\u30ED\u30B0\u30A4\u30F3'}
               </Button>
             </form>
-
             <div className="mt-4 text-center space-y-2">
               <p className="text-sm">
                 <a href="/forgot-password" className="font-medium text-blue-600 hover:underline">
-                  パスワードを忘れた方はこちら
+                  {'\u30D1\u30B9\u30EF\u30FC\u30C9\u3092\u5FD8\u308C\u305F\u65B9\u306F\u3053\u3061\u3089'}
                 </a>
               </p>
               <p className="text-sm text-gray-600">
-                アカウントをお持ちでない方は{' '}
+                {'\u30A2\u30AB\u30A6\u30F3\u30C8\u3092\u304A\u6301\u3061\u3067\u306A\u3044\u65B9\u306F'}{' '}
                 <a href="/signup" className="font-medium text-blue-600 hover:underline">
-                  新規登録
+                  {'\u65B0\u898F\u767B\u9332'}
                 </a>
               </p>
             </div>
