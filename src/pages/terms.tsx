@@ -27,8 +27,8 @@ export default function TermsPage() {
             <section>
               <h2 className="text-xl font-semibold text-gray-900 mt-8 mb-4">第1条（適用）</h2>
               <p>
-                本利用規約（以下「本規約」といいます。）は、[会社名]（以下「当社」といいます。）が提供する
-                [サービス名]（以下「本サービス」といいます。）の利用条件を定めるものです。
+                本利用規約（以下「本規約」といいます。）は、エレクス株式会社（以下「当社」といいます。）が提供する
+                AI Search Platform（以下「本サービス」といいます。）の利用条件を定めるものです。
                 登録ユーザーの皆さま（以下「ユーザー」といいます。）には、本規約に従って本サービスをご利用いただきます。
               </p>
             </section>
@@ -228,9 +228,9 @@ export default function TermsPage() {
                 本規約に関するお問い合わせは、下記までご連絡ください。
               </p>
               <p className="mt-2">
-                [会社名]<br />
+                エレクス株式会社<br />
                 所在地: [住所]<br />
-                メール: [お問い合わせ先メールアドレス]
+                メール: support@rapinics.co.jp
               </p>
             </section>
 

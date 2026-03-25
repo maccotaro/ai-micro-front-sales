@@ -17,7 +17,7 @@ services:
       - API_GATEWAY_URL=${API_GATEWAY_URL:-http://host.docker.internal:8888}
       - SALES_API_URL=${SALES_API_URL:-http://host.docker.internal:8005}
       - NPM_TOKEN=${NPM_TOKEN:-}
-      - NEXT_PUBLIC_RECAPTCHA_SITE_KEY=${NEXT_PUBLIC_RECAPTCHA_SITE_KEY:-}
+      - NEXT_PUBLIC_RECAPTCHA_SITE_KEY=${NEXT_PUBLIC_RECAPTCHA_SITE_KEY:-6Ld-M5csAAAAAIBpC9IP1nqhP8Iylj_inR87DYwV}
     command: >
       sh -c "
         if [ -n \"$$NPM_TOKEN\" ]; then
