@@ -8,7 +8,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { useToast } from '@/hooks/use-toast'
 import { useAuth } from '@/hooks/use-auth'
 
 const loginSchema = z.object({
@@ -62,11 +61,12 @@ function getProviderLabel(provider: OIDCProvider): string {
 }
 
 export default function LoginPage() {
-  const { toast } = useToast()
   const { login } = useAuth()
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
   const [providers, setProviders] = useState<OIDCProvider[]>([])
+  const [error, setError] = useState('')
+  const [successMessage, setSuccessMessage] = useState('')
 
   // MFA state
   const [mfaRequired, setMfaRequired] = useState(false)
@@ -82,9 +82,16 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (router.query.error) {
-      toast({ variant: 'destructive', title: '\u8A8D\u8A3C\u30A8\u30E9\u30FC', description: String(router.query.error) })
+      setError(String(router.query.error))
     }
-  }, [router.query.error, toast])
+    if (router.query.verified === 'true') {
+      setSuccessMessage('メールアドレスの確認が完了しました。ログインしてください。')
+    }
+    if (router.query.mfa_required === 'true' && router.query.mfa_token) {
+      setMfaRequired(true)
+      setMfaToken(String(router.query.mfa_token))
+    }
+  }, [router.query.error, router.query.verified, router.query.mfa_required, router.query.mfa_token])
 
   useEffect(() => { fetchProviders() }, [])
 
@@ -100,6 +107,8 @@ export default function LoginPage() {
 
   const onSubmit = async (data: LoginFormData) => {
     setIsLoading(true)
+    setError('')
+    setSuccessMessage('')
     try {
       const response = await fetch('/api/auth/login', {
         method: 'POST',
@@ -115,16 +124,14 @@ export default function LoginPage() {
       if (resData.mfa_required) {
         setMfaRequired(true)
         setMfaToken(resData.mfa_token)
+        setIsLoading(false)
         return
       }
 
-      await login(data.email, data.password)
-    } catch (error) {
-      toast({
-        variant: 'destructive',
-        title: '\u30ED\u30B0\u30A4\u30F3\u30A8\u30E9\u30FC',
-        description: error instanceof Error ? error.message : '\u30ED\u30B0\u30A4\u30F3\u306B\u5931\u6557\u3057\u307E\u3057\u305F',
-      })
+      // Normal login success - cookies already set by BFF, redirect
+      window.location.href = '/dashboard'
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'ログインに失敗しました')
     } finally { setIsLoading(false) }
   }
 
@@ -216,6 +223,16 @@ export default function LoginPage() {
             <CardDescription>{'\u55B6\u696D\u652F\u63F4AI\u30B5\u30FC\u30D3\u30B9'}</CardDescription>
           </CardHeader>
           <CardContent>
+            {successMessage && (
+              <div className="rounded-md bg-green-50 border border-green-200 p-4 mb-4">
+                <p className="text-sm text-green-700">{successMessage}</p>
+              </div>
+            )}
+            {error && (
+              <div className="rounded-md bg-red-50 border border-red-200 p-4 mb-4">
+                <p className="text-sm text-red-700">{error}</p>
+              </div>
+            )}
             {providers.length > 0 && (
               <div className="space-y-3 mb-6">
                 {providers.map((provider) => (
