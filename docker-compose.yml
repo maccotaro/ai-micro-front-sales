@@ -1,3 +1,7 @@
+# ⚠️ DEPRECATED (2026-03-25): front-sales は front-user に統合されました。
+# 営業担当ユーザーは front-user (Port 3002) を使用してください。
+# このサービスは将来のリリースで削除予定です。
+# NOTE: Windowsファイアウォールの受信ルール (Port 3005) も不要になるため削除してください。
 services:
   front-sales:
     image: node:20-alpine
